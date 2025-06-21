@@ -1,0 +1,36 @@
+{% extends "base.html" %}
+
+{% block title %}Admin Dashboard - Flask Auth App{% endblock %}
+
+{% block content %}
+<div class="container mt-4">
+    <div class="row">
+        <div class="col-12">
+            <div class="card shadow mb-4">
+                <div class="card-header bg-dark text-white">
+                    <h4 class="mb-0">Admin Dashboard</h4>
+                </div>
+                <div class="card-body">
+                    <h5>Welcome Administrator!</h5>
+                    <p>From this dashboard, you can manage all users of the platform.</p>
+                    
+                    <div class="row mt-4">
+                        <div class="col-md-4">
+                            <div class="card bg-info text-white mb-3">
+                                <div class="card-body">
+                                    <h5 class="card-title">Total Users</h5>
+                                    <p class="card-text display-4">{{ user_count }}</p>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                <div class="card-footer">
+                    <a href="{{ url_for('admin_users') }}" class="btn btn-primary">Manage Users</a>
+                    <a href="{{ url_for('logout') }}" class="btn btn-danger float-end">Logout</a>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

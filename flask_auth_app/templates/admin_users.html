@@ -1,12 +1,12 @@
 {% extends "base.html" %}
 
-{% block title %}Admin - User Database{% endblock %}
+{% block title %}Manage Users - Admin Panel{% endblock %}
 
 {% block content %}
 <div class="container mt-4">
     <div class="card shadow">
         <div class="card-header bg-dark text-white">
-            <h4 class="mb-0">Database Users (SQLAlchemy)</h4>
+            <h4 class="mb-0">Manage Users</h4>
         </div>
         <div class="card-body">
             {% if users %}
@@ -18,7 +18,7 @@
                                 <th>Username</th>
                                 <th>Email</th>
                                 <th>Created At</th>
-                                <th>Details</th>
+                                <th>Actions</th>
                             </tr>
                         </thead>
                         <tbody>
@@ -27,19 +27,40 @@
                                 <td>{{ user.id }}</td>
                                 <td>{{ user.username }}</td>
                                 <td>{{ user.email }}</td>
-                                <td>{{ user.created_at }}</td>
+                                <td>{{ user.created_at.strftime('%Y-%m-%d %H:%M:%S') }}</td>
                                 <td>
-                                    <button class="btn btn-sm btn-info" 
-                                            data-bs-toggle="collapse" 
-                                            data-bs-target="#details-{{ loop.index }}">
-                                        Show Details
-                                    </button>
-                                </td>
-                            </tr>
-                            <tr class="collapse" id="details-{{ loop.index }}">
-                                <td colspan="5">
-                                    <div class="card card-body bg-light">
-                                        <pre>{{ user|tojson(indent=2) }}</pre>
+                                    <div class="btn-group" role="group">
+                                        <a href="{{ url_for('admin_user_details', user_id=user.id) }}" 
+                                           class="btn btn-sm btn-info">View</a>
+                                        <a href="{{ url_for('admin_edit_user', user_id=user.id) }}" 
+                                           class="btn btn-sm btn-warning">Edit</a>
+                                        <button type="button" class="btn btn-sm btn-danger" 
+                                                data-bs-toggle="modal" 
+                                                data-bs-target="#deleteModal{{ user.id }}">
+                                            Delete
+                                        </button>
+                                    </div>
+                                    
+                                    <!-- Delete Confirmation Modal -->
+                                    <div class="modal fade" id="deleteModal{{ user.id }}" tabindex="-1">
+                                        <div class="modal-dialog">
+                                            <div class="modal-content">
+                                                <div class="modal-header bg-danger text-white">
+                                                    <h5 class="modal-title">Confirm Delete</h5>
+                                                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                                                </div>
+                                                <div class="modal-body">
+                                                    Are you sure you want to delete user <strong>{{ user.username }}</strong>?
+                                                    This action cannot be undone.
+                                                </div>
+                                                <div class="modal-footer">
+                                                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+                                                    <form action="{{ url_for('admin_delete_user', user_id=user.id) }}" method="POST">
+                                                        <button type="submit" class="btn btn-danger">Delete User</button>
+                                                    </form>
+                                                </div>
+                                            </div>
+                                        </div>
                                     </div>
                                 </td>
                             </tr>
@@ -54,7 +75,7 @@
             {% endif %}
         </div>
         <div class="card-footer">
-            <a href="{{ url_for('index') }}" class="btn btn-primary">Back to Home</a>
+            <a href="{{ url_for('admin_dashboard') }}" class="btn btn-primary">Back to Dashboard</a>
         </div>
     </div>
 </div>

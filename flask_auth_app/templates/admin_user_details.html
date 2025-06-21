@@ -1,0 +1,81 @@
+{% extends "base.html" %}
+
+{% block title %}User Details - Admin Panel{% endblock %}
+
+{% block content %}
+<div class="container mt-4">
+    <div class="card shadow">
+        <div class="card-header bg-info text-white">
+            <h4 class="mb-0">User Details</h4>
+        </div>
+        <div class="card-body">
+            <div class="row">
+                <div class="col-md-8">
+                    <div class="card mb-3">
+                        <div class="card-header bg-light">
+                            <h5 class="mb-0">Profile Information</h5>
+                        </div>
+                        <div class="card-body">
+                            <dl class="row">
+                                <dt class="col-sm-3">User ID</dt>
+                                <dd class="col-sm-9">{{ user.id }}</dd>
+                                
+                                <dt class="col-sm-3">Username</dt>
+                                <dd class="col-sm-9">{{ user.username }}</dd>
+                                
+                                <dt class="col-sm-3">Email</dt>
+                                <dd class="col-sm-9">{{ user.email }}</dd>
+                                
+                                <dt class="col-sm-3">Registered On</dt>
+                                <dd class="col-sm-9">{{ user.created_at.strftime('%Y-%m-%d %H:%M:%S') }}</dd>
+                            </dl>
+                        </div>
+                    </div>
+                </div>
+                <div class="col-md-4">
+                    <div class="card">
+                        <div class="card-header bg-light">
+                            <h5 class="mb-0">Actions</h5>
+                        </div>
+                        <div class="card-body">
+                            <div class="d-grid gap-2">
+                                <a href="{{ url_for('admin_edit_user', user_id=user.id) }}" class="btn btn-warning">
+                                    Edit User
+                                </a>
+                                <button type="button" class="btn btn-danger" data-bs-toggle="modal" data-bs-target="#deleteUserModal">
+                                    Delete User
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+        <div class="card-footer">
+            <a href="{{ url_for('admin_users') }}" class="btn btn-primary">Back to User List</a>
+        </div>
+    </div>
+</div>
+
+<!-- Delete User Modal -->
+<div class="modal fade" id="deleteUserModal" tabindex="-1">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header bg-danger text-white">
+                <h5 class="modal-title">Confirm Delete</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body">
+                Are you sure you want to delete user <strong>{{ user.username }}</strong>?
+                This action cannot be undone.
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+                <form action="{{ url_for('admin_delete_user', user_id=user.id) }}" method="POST">
+                    <button type="submit" class="btn btn-danger">Delete User</button>
+                </form>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

@@ -12,7 +12,7 @@
                 </div>
                 <div class="card-body">
                     <h5>Welcome Administrator!</h5>
-                    <p>From this dashboard, you can manage all users of the platform.</p>
+                    <p>From this dashboard, you can manage all users and game lobbies of the platform.</p>
                     
                     <div class="row mt-4">
                         <div class="col-md-4">
@@ -23,10 +23,19 @@
                                 </div>
                             </div>
                         </div>
+                        <div class="col-md-4">
+                            <div class="card bg-success text-white mb-3">
+                                <div class="card-body">
+                                    <h5 class="card-title">Active Lobbies</h5>
+                                    <p class="card-text display-4">{{ lobby_count }}</p>
+                                </div>
+                            </div>
+                        </div>
                     </div>
                 </div>
                 <div class="card-footer">
                     <a href="{{ url_for('admin_users') }}" class="btn btn-primary">Manage Users</a>
+                    <a href="{{ url_for('admin_lobbies') }}" class="btn btn-success">Manage Lobbies</a>
                     <a href="{{ url_for('logout') }}" class="btn btn-danger float-end">Logout</a>
                 </div>
             </div>

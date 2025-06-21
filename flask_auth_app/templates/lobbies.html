@@ -1,0 +1,76 @@
+{% extends "base.html" %}
+
+{% block title %}Game Lobbies - Flask Auth App{% endblock %}
+
+{% block content %}
+<div class="container mt-4">
+    <div class="row">
+        <div class="col-lg-8">
+            <div class="card shadow mb-4">
+                <div class="card-header bg-primary text-white">
+                    <h4 class="mb-0">Your Lobbies</h4>
+                </div>
+                <div class="card-body">
+                    {% if user_lobbies %}
+                        <div class="list-group">
+                            {% for lobby in user_lobbies %}
+                                <a href="{{ url_for('lobby_detail', lobby_code=lobby.code) }}" class="list-group-item list-group-item-action">
+                                    <div class="d-flex w-100 justify-content-between">
+                                        <h5 class="mb-1">Lobby #{{ lobby.code }}</h5>
+                                        <small>{{ lobby.player_count }} player(s)</small>
+                                    </div>
+                                    <p class="mb-1">
+                                        {% if lobby.owner_id == user.id %}
+                                            <span class="badge bg-warning">Owner</span>
+                                        {% else %}
+                                            <span class="badge bg-info">Member</span>
+                                        {% endif %}
+                                        Created {{ lobby.created_at.strftime('%Y-%m-%d %H:%M') }}
+                                    </p>
+                                </a>
+                            {% endfor %}
+                        </div>
+                    {% else %}
+                        <div class="alert alert-info">
+                            You are not in any active lobbies. Create a new lobby or join an existing one!
+                        </div>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+        
+        <div class="col-lg-4">
+            <div class="card shadow mb-4">
+                <div class="card-header bg-success text-white">
+                    <h4 class="mb-0">Create Lobby</h4>
+                </div>
+                <div class="card-body">
+                    <p>Create a new game lobby and invite your friends to join!</p>
+                    <form method="POST" action="{{ url_for('create_lobby') }}">
+                        <div class="d-grid">
+                            <button type="submit" class="btn btn-success">Create New Lobby</button>
+                        </div>
+                    </form>
+                </div>
+            </div>
+            
+            <div class="card shadow">
+                <div class="card-header bg-info text-white">
+                    <h4 class="mb-0">Join Lobby</h4>
+                </div>
+                <div class="card-body">
+                    <p>Enter a lobby code to join an existing game:</p>
+                    <form method="POST" action="{{ url_for('join_lobby') }}">
+                        <div class="mb-3">
+                            <input type="text" class="form-control" id="lobby_code" name="lobby_code" placeholder="Enter lobby code" required>
+                        </div>
+                        <div class="d-grid">
+                            <button type="submit" class="btn btn-info">Join Lobby</button>
+                        </div>
+                    </form>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

@@ -5,6 +5,8 @@ import os
 import sqlite3
 from datetime import datetime
 import logging
+import random
+import string
 
 # Set up logging
 logging.basicConfig(level=logging.DEBUG)
@@ -31,8 +33,51 @@ class User(db.Model):
     created_at = db.Column(db.DateTime, default=datetime.utcnow)
     is_admin = db.Column(db.Boolean, default=False)
     
+    # Relationship with LobbyPlayer
+    lobby_players = db.relationship('LobbyPlayer', back_populates='user', cascade='all, delete-orphan')
+    
     def __repr__(self):
         return f'<User {self.username}>'
+
+# Define Lobby model
+class Lobby(db.Model):
+    id = db.Column(db.Integer, primary_key=True)
+    code = db.Column(db.String(6), unique=True, nullable=False)
+    created_at = db.Column(db.DateTime, default=datetime.utcnow)
+    is_active = db.Column(db.Boolean, default=True)
+    owner_id = db.Column(db.Integer, db.ForeignKey('user.id'), nullable=False)
+    
+    # Relationships
+    owner = db.relationship('User', foreign_keys=[owner_id])
+    players = db.relationship('LobbyPlayer', back_populates='lobby', cascade='all, delete-orphan')
+    
+    def __repr__(self):
+        return f'<Lobby {self.code}>'
+    
+    @property
+    def player_count(self):
+        return len(self.players)
+
+# Define LobbyPlayer model (association table with additional data)
+class LobbyPlayer(db.Model):
+    id = db.Column(db.Integer, primary_key=True)
+    lobby_id = db.Column(db.Integer, db.ForeignKey('lobby.id'), nullable=False)
+    user_id = db.Column(db.Integer, db.ForeignKey('user.id'), nullable=False)
+    joined_at = db.Column(db.DateTime, default=datetime.utcnow)
+    
+    # Relationships
+    lobby = db.relationship('Lobby', back_populates='players')
+    user = db.relationship('User', back_populates='lobby_players')
+    
+    def __repr__(self):
+        return f'<LobbyPlayer {self.user.username} in {self.lobby.code}>'
+
+# Function to generate a unique lobby code
+def generate_lobby_code():
+    while True:
+        code = ''.join(random.choices(string.ascii_uppercase + string.digits, k=6))
+        if not Lobby.query.filter_by(code=code).first():
+            return code
 
 # Function to check if column exists in SQLite table
 def column_exists(table_name, column_name):
@@ -200,7 +245,11 @@ def admin_dashboard():
     try:
         # Get count of total users
         user_count = User.query.filter(User.is_admin == False).count()
-        return render_template('admin_dashboard.html', user_count=user_count)
+        
+        # Get count of active lobbies
+        lobby_count = Lobby.query.filter_by(is_active=True).count()
+        
+        return render_template('admin_dashboard.html', user_count=user_count, lobby_count=lobby_count)
     except Exception as e:
         logger.error(f"Error accessing admin dashboard: {e}")
         flash('An error occurred while accessing admin dashboard.', 'error')
@@ -307,6 +356,277 @@ def admin_delete_user(user_id):
         logger.error(f"Error deleting user: {e}")
         flash('An error occurred while deleting user.', 'error')
         return redirect(url_for('admin_users'))
+
+@app.route('/admin/lobbies')
+def admin_lobbies():
+    """Admin page to view all lobbies - only accessible to admin users"""
+    if not session.get('is_admin', False):
+        flash('You do not have permission to access this page!', 'error')
+        return redirect(url_for('home'))
+    
+    try:
+        # Get all active lobbies
+        lobbies = Lobby.query.filter_by(is_active=True).all()
+        return render_template('admin_lobbies.html', lobbies=lobbies)
+    except Exception as e:
+        logger.error(f"Error accessing admin lobbies page: {e}")
+        flash('An error occurred while retrieving lobbies.', 'error')
+        return redirect(url_for('admin_dashboard'))
+
+@app.route('/admin/lobby/<lobby_code>')
+def admin_lobby_detail(lobby_code):
+    """Admin page to view details of a specific lobby"""
+    if not session.get('is_admin', False):
+        flash('You do not have permission to access this page!', 'error')
+        return redirect(url_for('home'))
+    
+    try:
+        lobby = Lobby.query.filter_by(code=lobby_code).first()
+        if not lobby:
+            flash('Lobby not found!', 'error')
+            return redirect(url_for('admin_lobbies'))
+            
+        return render_template('admin_lobby_detail.html', lobby=lobby)
+    except Exception as e:
+        logger.error(f"Error accessing lobby details: {e}")
+        flash('An error occurred while retrieving lobby details.', 'error')
+        return redirect(url_for('admin_lobbies'))
+
+@app.route('/admin/lobby/<lobby_code>/delete', methods=['POST'])
+def admin_delete_lobby(lobby_code):
+    """Admin action to delete a lobby"""
+    if not session.get('is_admin', False):
+        flash('You do not have permission to perform this action!', 'error')
+        return redirect(url_for('home'))
+    
+    try:
+        lobby = Lobby.query.filter_by(code=lobby_code).first()
+        if not lobby:
+            flash('Lobby not found!', 'error')
+            return redirect(url_for('admin_lobbies'))
+        
+        # Mark lobby as inactive instead of hard delete
+        lobby.is_active = False
+        db.session.commit()
+        
+        flash('Lobby deleted successfully!', 'success')
+        return redirect(url_for('admin_lobbies'))
+    except Exception as e:
+        logger.error(f"Error deleting lobby: {e}")
+        flash('An error occurred while deleting lobby.', 'error')
+        return redirect(url_for('admin_lobbies'))
+
+# Lobby Routes
+@app.route('/lobbies')
+def lobbies():
+    """View available lobbies or create/join one"""
+    if 'username' not in session:
+        flash('Please login first!', 'error')
+        return redirect(url_for('login'))
+    
+    try:
+        username = session['username']
+        user = User.query.filter_by(username=username).first()
+        
+        # Get lobbies the user is in
+        user_lobbies = []
+        for lobby_player in user.lobby_players:
+            if lobby_player.lobby.is_active:
+                user_lobbies.append(lobby_player.lobby)
+        
+        return render_template('lobbies.html', user=user, user_lobbies=user_lobbies)
+    except Exception as e:
+        logger.error(f"Error accessing lobbies page: {e}")
+        flash('An error occurred. Please try again.', 'error')
+        return redirect(url_for('home'))
+
+@app.route('/lobby/create', methods=['POST'])
+def create_lobby():
+    """Create a new lobby"""
+    if 'username' not in session:
+        flash('Please login first!', 'error')
+        return redirect(url_for('login'))
+    
+    try:
+        username = session['username']
+        user = User.query.filter_by(username=username).first()
+        
+        # Generate a unique code for the lobby
+        lobby_code = generate_lobby_code()
+        
+        # Create the lobby
+        new_lobby = Lobby(
+            code=lobby_code,
+            owner_id=user.id,
+            is_active=True
+        )
+        db.session.add(new_lobby)
+        db.session.flush()  # Flush to get the lobby ID
+        
+        # Add the creator as a player
+        lobby_player = LobbyPlayer(
+            lobby_id=new_lobby.id,
+            user_id=user.id
+        )
+        db.session.add(lobby_player)
+        db.session.commit()
+        
+        flash(f'Lobby created successfully! Your lobby code is: {lobby_code}', 'success')
+        return redirect(url_for('lobby_detail', lobby_code=lobby_code))
+    except Exception as e:
+        logger.error(f"Error creating lobby: {e}")
+        db.session.rollback()
+        flash('An error occurred while creating lobby. Please try again.', 'error')
+        return redirect(url_for('lobbies'))
+
+@app.route('/lobby/join', methods=['POST'])
+def join_lobby():
+    """Join an existing lobby using a code"""
+    if 'username' not in session:
+        flash('Please login first!', 'error')
+        return redirect(url_for('login'))
+    
+    try:
+        username = session['username']
+        user = User.query.filter_by(username=username).first()
+        lobby_code = request.form.get('lobby_code', '').strip().upper()
+        
+        if not lobby_code:
+            flash('Please enter a lobby code!', 'error')
+            return redirect(url_for('lobbies'))
+        
+        # Check if lobby exists
+        lobby = Lobby.query.filter_by(code=lobby_code, is_active=True).first()
+        if not lobby:
+            flash('Invalid lobby code or lobby no longer active!', 'error')
+            return redirect(url_for('lobbies'))
+        
+        # Check if user is already in this lobby
+        existing_player = LobbyPlayer.query.filter_by(lobby_id=lobby.id, user_id=user.id).first()
+        if existing_player:
+            flash('You are already in this lobby!', 'info')
+            return redirect(url_for('lobby_detail', lobby_code=lobby_code))
+        
+        # Add user to lobby
+        lobby_player = LobbyPlayer(
+            lobby_id=lobby.id,
+            user_id=user.id
+        )
+        db.session.add(lobby_player)
+        db.session.commit()
+        
+        flash(f'Successfully joined lobby {lobby_code}!', 'success')
+        return redirect(url_for('lobby_detail', lobby_code=lobby_code))
+    except Exception as e:
+        logger.error(f"Error joining lobby: {e}")
+        db.session.rollback()
+        flash('An error occurred while joining lobby. Please try again.', 'error')
+        return redirect(url_for('lobbies'))
+
+@app.route('/lobby/<lobby_code>')
+def lobby_detail(lobby_code):
+    """View lobby details and players"""
+    if 'username' not in session:
+        flash('Please login first!', 'error')
+        return redirect(url_for('login'))
+    
+    try:
+        username = session['username']
+        user = User.query.filter_by(username=username).first()
+        
+        # Get lobby
+        lobby = Lobby.query.filter_by(code=lobby_code, is_active=True).first()
+        if not lobby:
+            flash('Lobby not found or no longer active!', 'error')
+            return redirect(url_for('lobbies'))
+        
+        # Check if user is in this lobby
+        is_player = LobbyPlayer.query.filter_by(lobby_id=lobby.id, user_id=user.id).first() is not None
+        if not is_player:
+            flash('You are not a member of this lobby!', 'error')
+            return redirect(url_for('lobbies'))
+        
+        # Check if user is owner
+        is_owner = lobby.owner_id == user.id
+        
+        return render_template('lobby_detail.html', 
+                               lobby=lobby, 
+                               is_owner=is_owner,
+                               user=user)
+    except Exception as e:
+        logger.error(f"Error viewing lobby: {e}")
+        flash('An error occurred. Please try again.', 'error')
+        return redirect(url_for('lobbies'))
+
+@app.route('/lobby/<lobby_code>/leave', methods=['POST'])
+def leave_lobby(lobby_code):
+    """Leave a lobby"""
+    if 'username' not in session:
+        flash('Please login first!', 'error')
+        return redirect(url_for('login'))
+    
+    try:
+        username = session['username']
+        user = User.query.filter_by(username=username).first()
+        
+        # Get lobby
+        lobby = Lobby.query.filter_by(code=lobby_code, is_active=True).first()
+        if not lobby:
+            flash('Lobby not found or no longer active!', 'error')
+            return redirect(url_for('lobbies'))
+        
+        # Remove user from lobby
+        lobby_player = LobbyPlayer.query.filter_by(lobby_id=lobby.id, user_id=user.id).first()
+        if lobby_player:
+            db.session.delete(lobby_player)
+            
+            # Check if this was the last player
+            remaining_players = LobbyPlayer.query.filter_by(lobby_id=lobby.id).count()
+            if remaining_players == 0:
+                # If last player leaves, delete lobby
+                lobby.is_active = False
+            
+            db.session.commit()
+            flash('Successfully left the lobby!', 'success')
+        else:
+            flash('You are not a member of this lobby!', 'error')
+        
+        return redirect(url_for('lobbies'))
+    except Exception as e:
+        logger.error(f"Error leaving lobby: {e}")
+        db.session.rollback()
+        flash('An error occurred while leaving lobby. Please try again.', 'error')
+        return redirect(url_for('lobbies'))
+
+@app.route('/lobby/<lobby_code>/start', methods=['POST'])
+def start_game(lobby_code):
+    """Start the game (placeholder for now)"""
+    if 'username' not in session:
+        flash('Please login first!', 'error')
+        return redirect(url_for('login'))
+    
+    try:
+        username = session['username']
+        user = User.query.filter_by(username=username).first()
+        
+        # Get lobby
+        lobby = Lobby.query.filter_by(code=lobby_code, is_active=True).first()
+        if not lobby:
+            flash('Lobby not found or no longer active!', 'error')
+            return redirect(url_for('lobbies'))
+        
+        # Check if user is the owner
+        if lobby.owner_id != user.id:
+            flash('Only the lobby owner can start the game!', 'error')
+            return redirect(url_for('lobby_detail', lobby_code=lobby_code))
+        
+        # Here you would start the game logic - for now just redirect back with a message
+        flash('Game started! (This is a placeholder - implement actual game logic)', 'success')
+        return redirect(url_for('lobby_detail', lobby_code=lobby_code))
+    except Exception as e:
+        logger.error(f"Error starting game: {e}")
+        flash('An error occurred while starting game. Please try again.', 'error')
+        return redirect(url_for('lobby_detail', lobby_code=lobby_code))
 
 if __name__ == '__main__':
     # For development:

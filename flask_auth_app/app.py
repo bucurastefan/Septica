@@ -136,7 +136,7 @@ with app.app_context():
 @app.route('/')
 def index():
     if 'username' in session:
-        return redirect(url_for('home'))
+        return redirect(url_for('lobbies'))
     return redirect(url_for('login'))
 
 @app.route('/login', methods=['GET', 'POST'])
@@ -153,10 +153,8 @@ def login():
                 session['is_admin'] = user.is_admin
                 flash('Login successful!', 'success')
                 
-                # Redirect admin users to admin dashboard
-                if user.is_admin:
-                    return redirect(url_for('admin_dashboard'))
-                return redirect(url_for('home'))
+                # Redirect directly to lobbies page for all users
+                return redirect(url_for('lobbies'))
             else:
                 flash('Invalid username or password!', 'error')
         except Exception as e:
@@ -240,7 +238,7 @@ def admin_dashboard():
     """Admin dashboard - only accessible to admin users"""
     if not session.get('is_admin', False):
         flash('You do not have permission to access the admin dashboard!', 'error')
-        return redirect(url_for('home'))
+        return redirect(url_for('lobbies'))
     
     try:
         # Get count of total users
@@ -253,14 +251,14 @@ def admin_dashboard():
     except Exception as e:
         logger.error(f"Error accessing admin dashboard: {e}")
         flash('An error occurred while accessing admin dashboard.', 'error')
-        return redirect(url_for('home'))
+        return redirect(url_for('lobbies'))
 
 @app.route('/admin/users')
 def admin_users():
     """Admin page to view all users - only accessible to admin users"""
     if not session.get('is_admin', False):
         flash('You do not have permission to access this page!', 'error')
-        return redirect(url_for('home'))
+        return redirect(url_for('lobbies'))
     
     try:
         users = User.query.filter(User.is_admin == False).all()
@@ -275,7 +273,7 @@ def admin_user_details(user_id):
     """Admin page to view details of a specific user"""
     if not session.get('is_admin', False):
         flash('You do not have permission to access this page!', 'error')
-        return redirect(url_for('home'))
+        return redirect(url_for('lobbies'))
     
     try:
         user = User.query.get_or_404(user_id)
@@ -294,7 +292,7 @@ def admin_edit_user(user_id):
     """Admin page to edit a user"""
     if not session.get('is_admin', False):
         flash('You do not have permission to access this page!', 'error')
-        return redirect(url_for('home'))
+        return redirect(url_for('lobbies'))
     
     try:
         user = User.query.get_or_404(user_id)
@@ -340,7 +338,7 @@ def admin_delete_user(user_id):
     """Admin action to delete a user"""
     if not session.get('is_admin', False):
         flash('You do not have permission to perform this action!', 'error')
-        return redirect(url_for('home'))
+        return redirect(url_for('lobbies'))
     
     try:
         user = User.query.get_or_404(user_id)
@@ -362,7 +360,7 @@ def admin_lobbies():
     """Admin page to view all lobbies - only accessible to admin users"""
     if not session.get('is_admin', False):
         flash('You do not have permission to access this page!', 'error')
-        return redirect(url_for('home'))
+        return redirect(url_for('lobbies'))
     
     try:
         # Get all active lobbies
@@ -378,7 +376,7 @@ def admin_lobby_detail(lobby_code):
     """Admin page to view details of a specific lobby"""
     if not session.get('is_admin', False):
         flash('You do not have permission to access this page!', 'error')
-        return redirect(url_for('home'))
+        return redirect(url_for('lobbies'))
     
     try:
         lobby = Lobby.query.filter_by(code=lobby_code).first()
@@ -397,7 +395,7 @@ def admin_delete_lobby(lobby_code):
     """Admin action to delete a lobby"""
     if not session.get('is_admin', False):
         flash('You do not have permission to perform this action!', 'error')
-        return redirect(url_for('home'))
+        return redirect(url_for('lobbies'))
     
     try:
         lobby = Lobby.query.filter_by(code=lobby_code).first()
@@ -438,7 +436,7 @@ def lobbies():
     except Exception as e:
         logger.error(f"Error accessing lobbies page: {e}")
         flash('An error occurred. Please try again.', 'error')
-        return redirect(url_for('home'))
+        return redirect(url_for('login'))
 
 @app.route('/lobby/create', methods=['POST'])
 def create_lobby():

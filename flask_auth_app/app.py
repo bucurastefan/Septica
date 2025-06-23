@@ -1,5 +1,6 @@
 from flask import Flask, render_template, url_for, redirect, request, flash, session, jsonify
 from flask_sqlalchemy import SQLAlchemy
+from flask_socketio import SocketIO, emit, join_room, leave_room
 from werkzeug.security import generate_password_hash, check_password_hash
 import os
 import sqlite3
@@ -23,6 +24,9 @@ app.config["SQLALCHEMY_TRACK_MODIFICATIONS"] = False
 
 # Initialize SQLAlchemy
 db = SQLAlchemy(app)
+
+# Initialize SocketIO
+socketio = SocketIO(app, cors_allowed_origins="*")
 
 # Define User model
 class User(db.Model):
@@ -513,6 +517,13 @@ def join_lobby():
         db.session.add(lobby_player)
         db.session.commit()
         
+        # Emit a real-time event to all users in the lobby
+        socketio.emit('player_joined', {
+            'username': username,
+            'user_id': user.id,
+            'joined_at': datetime.utcnow().strftime('%H:%M:%S')
+        }, room=lobby_code)
+        
         flash(f'Successfully joined lobby {lobby_code}!', 'success')
         return redirect(url_for('lobby_detail', lobby_code=lobby_code))
     except Exception as e:
@@ -583,8 +594,19 @@ def leave_lobby(lobby_code):
             if remaining_players == 0:
                 # If last player leaves, delete lobby
                 lobby.is_active = False
+                # Make sure to commit the change to mark lobby as inactive
+                db.session.commit()
+                # No need to emit an event if lobby is deleted
+            else:
+                # Commit first to ensure database is updated
+                db.session.commit()
+                
+                # Emit a real-time event to all users in the lobby
+                socketio.emit('player_left', {
+                    'username': username,
+                    'user_id': user.id
+                }, room=lobby_code)
             
-            db.session.commit()
             flash('Successfully left the lobby!', 'success')
         else:
             flash('You are not a member of this lobby!', 'error')
@@ -626,9 +648,43 @@ def start_game(lobby_code):
         flash('An error occurred while starting game. Please try again.', 'error')
         return redirect(url_for('lobby_detail', lobby_code=lobby_code))
 
+# SocketIO event handlers
+@socketio.on('connect')
+def handle_connect():
+    """Handle client connection"""
+    if 'username' in session:
+        username = session['username']
+        logger.info(f"User {username} connected")
+    else:
+        logger.info("Anonymous user connected")
+
+@socketio.on('join_lobby_room')
+def handle_join_lobby_room(data):
+    """Join a SocketIO room for a specific lobby"""
+    lobby_code = data.get('lobby_code')
+    if not lobby_code:
+        return
+    
+    # Use the lobby code as the room name
+    join_room(lobby_code)
+    logger.info(f"User joined room: {lobby_code}")
+
+@socketio.on('leave_lobby_room')
+def handle_leave_lobby_room(data):
+    """Leave a SocketIO room for a specific lobby"""
+    lobby_code = data.get('lobby_code')
+    if not lobby_code:
+        return
+    
+    # Use the lobby code as the room name
+    leave_room(lobby_code)
+    logger.info(f"User left room: {lobby_code}")
+
+# Update the run statement to use SocketIO
 if __name__ == '__main__':
     # For development:
-    app.run(debug=True)
+    # app.run(debug=True)
+    socketio.run(app, debug=True)
     
     # For production hosting (allows external connections):
-    # app.run(host='0.0.0.0', port=5000, debug=False)
+    # socketio.run(app, host='0.0.0.0', port=5000, debug=False)

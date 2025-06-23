@@ -1,6 +1,6 @@
 {% extends "base.html" %}
 
-{% block title %}Lobby {{ lobby.code }} - Flask Auth App{% endblock %}
+{% block title %}Lobby {{ lobby.code }} - Șeptică{% endblock %}
 
 {% block content %}
 <div class="container mt-4">
@@ -19,10 +19,10 @@
                         <p class="mb-0 mt-2">Share this code with friends so they can join your lobby!</p>
                     </div>
                     
-                    <h5>Players ({{ lobby.player_count }})</h5>
-                    <ul class="list-group">
+                    <h5>Players (<span id="player-count">{{ lobby.player_count }}</span>)</h5>
+                    <ul class="list-group" id="players-list">
                         {% for player in lobby.players %}
-                            <li class="list-group-item d-flex justify-content-between align-items-center">
+                            <li class="list-group-item d-flex justify-content-between align-items-center player-item" data-user-id="{{ player.user.id }}">
                                 {{ player.user.username }}
                                 {% if player.user.id == lobby.owner_id %}
                                     <span class="badge bg-warning">Owner</span>
@@ -52,7 +52,7 @@
                     <h4 class="mb-0">Game Information</h4>
                 </div>
                 <div class="card-body">
-                    <p>Get ready to play 7-Game!</p>
+                    <p>Get ready to play Șeptică!</p>
                     <p>Waiting for the lobby owner to start the game...</p>
                     
                     {% if is_owner %}
@@ -70,11 +70,104 @@
                     <a href="{{ url_for('lobbies') }}" class="btn btn-secondary">Back to Lobbies</a>
                 </div>
             </div>
+            
+            <div class="card shadow mt-3">
+                <div class="card-header bg-secondary text-white">
+                    <h5 class="mb-0">Activity Log</h5>
+                </div>
+                <div class="card-body">
+                    <div id="activity-log" class="small" style="max-height: 200px; overflow-y: auto;">
+                        <p class="text-muted">Lobby activity will appear here...</p>
+                    </div>
+                </div>
+            </div>
         </div>
     </div>
 </div>
 
+<!-- Socket.IO Client Script -->
+<script src="https://cdn.socket.io/4.6.0/socket.io.min.js"></script>
+
 <script>
+// Connect to Socket.IO server
+const socket = io();
+const lobbyCode = document.getElementById('lobbyCode').textContent;
+
+// Join the lobby room when page loads
+socket.on('connect', function() {
+    socket.emit('join_lobby_room', {lobby_code: lobbyCode});
+    logActivity('Connected to lobby');
+});
+
+// Listen for player join events
+socket.on('player_joined', function(data) {
+    const playersList = document.getElementById('players-list');
+    const playerCount = document.getElementById('player-count');
+    
+    // Check if player is already in the list (to avoid duplicates)
+    if (!document.querySelector(`.player-item[data-user-id="${data.user_id}"]`)) {
+        // Create new player element
+        const newPlayer = document.createElement('li');
+        newPlayer.className = 'list-group-item d-flex justify-content-between align-items-center player-item';
+        newPlayer.setAttribute('data-user-id', data.user_id);
+        
+        newPlayer.innerHTML = `
+            ${data.username}
+            <small>Joined: ${data.joined_at}</small>
+        `;
+        
+        // Add to list
+        playersList.appendChild(newPlayer);
+        
+        // Update player count
+        playerCount.textContent = parseInt(playerCount.textContent) + 1;
+        
+        // Log the activity
+        logActivity(`${data.username} joined the lobby`);
+    }
+});
+
+// Listen for player leave events
+socket.on('player_left', function(data) {
+    const playerItem = document.querySelector(`.player-item[data-user-id="${data.user_id}"]`);
+    const playerCount = document.getElementById('player-count');
+    
+    if (playerItem) {
+        // Remove player from list
+        playerItem.remove();
+        
+        // Update player count
+        playerCount.textContent = parseInt(playerCount.textContent) - 1;
+        
+        // Log the activity
+        logActivity(`${data.username} left the lobby`);
+    }
+});
+
+// Function to log activity to the activity log
+function logActivity(message) {
+    const activityLog = document.getElementById('activity-log');
+    const timestamp = new Date().toLocaleTimeString();
+    
+    // Clear the placeholder message if it exists
+    if (activityLog.querySelector('.text-muted')) {
+        activityLog.innerHTML = '';
+    }
+    
+    // Add new activity message
+    const activityItem = document.createElement('p');
+    activityItem.className = 'mb-1';
+    activityItem.innerHTML = `<small class="text-muted">[${timestamp}]</small> ${message}`;
+    
+    // Add to the top of the log
+    activityLog.insertBefore(activityItem, activityLog.firstChild);
+}
+
+// Before unloading the page, leave the room
+window.addEventListener('beforeunload', function() {
+    socket.emit('leave_lobby_room', {lobby_code: lobbyCode});
+});
+
 function copyLobbyCode() {
     const lobbyCode = document.getElementById('lobbyCode').textContent;
     navigator.clipboard.writeText(lobbyCode)

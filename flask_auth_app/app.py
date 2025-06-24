@@ -47,8 +47,10 @@ class User(db.Model):
 class Lobby(db.Model):
     id = db.Column(db.Integer, primary_key=True)
     code = db.Column(db.String(6), unique=True, nullable=False)
+    name = db.Column(db.String(100), nullable=True)  # New field for lobby name
     created_at = db.Column(db.DateTime, default=datetime.utcnow)
     is_active = db.Column(db.Boolean, default=True)
+    is_public = db.Column(db.Boolean, default=True)  
     owner_id = db.Column(db.Integer, db.ForeignKey('user.id'), nullable=False)
     
     # Relationships
@@ -114,10 +116,44 @@ def add_is_admin_column():
     except Exception as e:
         logger.error(f"Error adding is_admin column: {e}")
 
+# Function to add is_public column to lobby table if it doesn't exist
+def add_is_public_column():
+    try:
+        if os.path.exists(db_path) and not column_exists('lobby', 'is_public'):
+            logger.info("Adding is_public column to lobby table")
+            conn = sqlite3.connect(db_path)
+            cursor = conn.cursor()
+            cursor.execute("ALTER TABLE lobby ADD COLUMN is_public BOOLEAN DEFAULT 1")
+            conn.commit()
+            conn.close()
+            logger.info("is_public column added successfully")
+    except Exception as e:
+        logger.error(f"Error adding is_public column: {e}")
+
+# Function to add name column to lobby table if it doesn't exist
+def add_name_column():
+    try:
+        if os.path.exists(db_path) and not column_exists('lobby', 'name'):
+            logger.info("Adding name column to lobby table")
+            conn = sqlite3.connect(db_path)
+            cursor = conn.cursor()
+            cursor.execute("ALTER TABLE lobby ADD COLUMN name TEXT")
+            conn.commit()
+            conn.close()
+            logger.info("name column added successfully")
+    except Exception as e:
+        logger.error(f"Error adding name column: {e}")
+
 # Create tables and admin user if it doesn't exist
 with app.app_context():
     # First make sure the is_admin column exists
     add_is_admin_column()
+    
+    # Then make sure the is_public column exists in lobby table
+    add_is_public_column()
+    
+    # Then make sure the name column exists in lobby table
+    add_name_column()
     
     # Then create tables if they don't exist
     db.create_all()
@@ -153,8 +189,9 @@ def login():
             user = User.query.filter_by(username=username).first()
             
             if user and check_password_hash(user.password, password):
+                session.clear()  # Clear any existing session data
                 session['username'] = username
-                session['is_admin'] = user.is_admin
+                session['is_admin'] = bool(user.is_admin)  # Ensure boolean conversion
                 flash('Login successful!', 'success')
                 
                 # Redirect directly to lobbies page for all users
@@ -436,7 +473,12 @@ def lobbies():
             if lobby_player.lobby.is_active:
                 user_lobbies.append(lobby_player.lobby)
         
-        return render_template('lobbies.html', user=user, user_lobbies=user_lobbies)
+        # Get public lobbies that the user is not in
+        public_lobbies = Lobby.query.filter_by(is_active=True, is_public=True).all()
+        # Filter out lobbies the user is already in
+        public_lobbies = [lobby for lobby in public_lobbies if lobby not in user_lobbies]
+        
+        return render_template('lobbies.html', user=user, user_lobbies=user_lobbies, public_lobbies=public_lobbies)
     except Exception as e:
         logger.error(f"Error accessing lobbies page: {e}")
         flash('An error occurred. Please try again.', 'error')
@@ -453,14 +495,31 @@ def create_lobby():
         username = session['username']
         user = User.query.filter_by(username=username).first()
         
+        # Check if user is already in an active lobby
+        current_lobby = user_in_active_lobby(user.id)
+        if current_lobby:
+            flash(f'You are already in lobby {current_lobby.code}. Please leave that lobby first before creating a new one.', 'error')
+            return redirect(url_for('lobby_detail', lobby_code=current_lobby.code))
+        
+        # Check if public or private lobby - handle the checkbox properly
+        # When checkbox is checked, it's included in the form data
+        # When it's unchecked, it's missing entirely
+        is_public = request.form.get('is_public') is not None
+        logger.debug(f"Creating lobby with is_public={is_public}")
+        
         # Generate a unique code for the lobby
         lobby_code = generate_lobby_code()
+        
+        # Set lobby name based on creator's username
+        lobby_name = f"Lobby {username}"
         
         # Create the lobby
         new_lobby = Lobby(
             code=lobby_code,
+            name=lobby_name,
             owner_id=user.id,
-            is_active=True
+            is_active=True,
+            is_public=is_public
         )
         db.session.add(new_lobby)
         db.session.flush()  # Flush to get the lobby ID
@@ -508,6 +567,12 @@ def join_lobby():
         if existing_player:
             flash('You are already in this lobby!', 'info')
             return redirect(url_for('lobby_detail', lobby_code=lobby_code))
+        
+        # Check if user is already in another active lobby
+        current_lobby = user_in_active_lobby(user.id)
+        if current_lobby:
+            flash(f'You are already in lobby {current_lobby.code}. Please leave that lobby first before joining a new one.', 'error')
+            return redirect(url_for('lobby_detail', lobby_code=current_lobby.code))
         
         # Add user to lobby
         lobby_player = LobbyPlayer(
@@ -587,25 +652,33 @@ def leave_lobby(lobby_code):
         # Remove user from lobby
         lobby_player = LobbyPlayer.query.filter_by(lobby_id=lobby.id, user_id=user.id).first()
         if lobby_player:
+            is_owner = lobby.owner_id == user.id
             db.session.delete(lobby_player)
             
             # Check if this was the last player
-            remaining_players = LobbyPlayer.query.filter_by(lobby_id=lobby.id).count()
-            if remaining_players == 0:
-                # If last player leaves, delete lobby
+            remaining_players = LobbyPlayer.query.filter_by(lobby_id=lobby.id).all()
+            if len(remaining_players) == 0:
+                # If last player leaves, mark lobby as inactive
                 lobby.is_active = False
-                # Make sure to commit the change to mark lobby as inactive
-                db.session.commit()
-                # No need to emit an event if lobby is deleted
-            else:
-                # Commit first to ensure database is updated
-                db.session.commit()
+            elif is_owner and len(remaining_players) > 0:
+                # If the owner is leaving and there are still players, assign a new owner
+                new_owner = remaining_players[0].user
+                lobby.owner_id = new_owner.id
                 
-                # Emit a real-time event to all users in the lobby
-                socketio.emit('player_left', {
-                    'username': username,
-                    'user_id': user.id
+                # Notify users in the lobby about the owner change
+                socketio.emit('owner_changed', {
+                    'previous_owner': username,
+                    'new_owner': new_owner.username,
+                    'new_owner_id': new_owner.id
                 }, room=lobby_code)
+            
+            db.session.commit()
+            
+            # Emit a real-time event to all users in the lobby about the player leaving
+            socketio.emit('player_left', {
+                'username': username,
+                'user_id': user.id
+            }, room=lobby_code)
             
             flash('Successfully left the lobby!', 'success')
         else:
@@ -647,6 +720,15 @@ def start_game(lobby_code):
         logger.error(f"Error starting game: {e}")
         flash('An error occurred while starting game. Please try again.', 'error')
         return redirect(url_for('lobby_detail', lobby_code=lobby_code))
+
+# Helper function to check if user is already in an active lobby
+def user_in_active_lobby(user_id):
+    """Check if a user is already in an active lobby"""
+    user_lobby_players = LobbyPlayer.query.filter_by(user_id=user_id).all()
+    for lobby_player in user_lobby_players:
+        if lobby_player.lobby.is_active:
+            return lobby_player.lobby
+    return None
 
 # SocketIO event handlers
 @socketio.on('connect')

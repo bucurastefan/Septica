@@ -8,7 +8,14 @@
         <div class="col-lg-8">
             <div class="card shadow mb-4">
                 <div class="card-header bg-primary text-white d-flex justify-content-between align-items-center">
-                    <h4 class="mb-0">Lobby #{{ lobby.code }}</h4>
+                    <h4 class="mb-0">
+                        {{ lobby.name or 'Lobby #' + lobby.code }}
+                        {% if lobby.is_public %}
+                            <span class="badge bg-success">Public</span>
+                        {% else %}
+                            <span class="badge bg-secondary">Private</span>
+                        {% endif %}
+                    </h4>
                     <button class="btn btn-light btn-sm" onclick="copyLobbyCode()">
                         <i class="bi bi-clipboard"></i> Copy Code
                     </button>
@@ -22,10 +29,10 @@
                     <h5>Players (<span id="player-count">{{ lobby.player_count }}</span>)</h5>
                     <ul class="list-group" id="players-list">
                         {% for player in lobby.players %}
-                            <li class="list-group-item d-flex justify-content-between align-items-center player-item" data-user-id="{{ player.user.id }}">
+                            <li class="list-group-item d-flex justify-content-between align-items-center player-item" data-user-id="{{ player.user.id }}" data-username="{{ player.user.username }}">
                                 {{ player.user.username }}
                                 {% if player.user.id == lobby.owner_id %}
-                                    <span class="badge bg-warning">Owner</span>
+                                    <span class="badge bg-warning owner-badge">Owner</span>
                                 {% endif %}
                                 <small>Joined: {{ player.joined_at.strftime('%H:%M:%S') }}</small>
                             </li>
@@ -56,12 +63,12 @@
                     <p>Waiting for the lobby owner to start the game...</p>
                     
                     {% if is_owner %}
-                        <div class="alert alert-warning">
+                        <div class="alert alert-warning" id="owner-alert">
                             <strong>You are the lobby owner!</strong>
                             <p class="mb-0">Click "Start Game" when all players have joined.</p>
                         </div>
                     {% else %}
-                        <div class="alert alert-info">
+                        <div class="alert alert-info" id="non-owner-alert">
                             <p class="mb-0">Please wait for the lobby owner to start the game.</p>
                         </div>
                     {% endif %}
@@ -92,6 +99,7 @@
 // Connect to Socket.IO server
 const socket = io();
 const lobbyCode = document.getElementById('lobbyCode').textContent;
+const currentUserId = {{ user.id }};
 
 // Join the lobby room when page loads
 socket.on('connect', function() {
@@ -110,6 +118,7 @@ socket.on('player_joined', function(data) {
         const newPlayer = document.createElement('li');
         newPlayer.className = 'list-group-item d-flex justify-content-between align-items-center player-item';
         newPlayer.setAttribute('data-user-id', data.user_id);
+        newPlayer.setAttribute('data-username', data.username);
         
         newPlayer.innerHTML = `
             ${data.username}
@@ -142,6 +151,68 @@ socket.on('player_left', function(data) {
         // Log the activity
         logActivity(`${data.username} left the lobby`);
     }
+});
+
+// Listen for owner change events
+socket.on('owner_changed', function(data) {
+    // Get all owner badges and remove them
+    const ownerBadges = document.querySelectorAll('.owner-badge');
+    ownerBadges.forEach(badge => badge.remove());
+    
+    // Add owner badge to the new owner
+    const newOwnerItem = document.querySelector(`.player-item[data-user-id="${data.new_owner_id}"]`);
+    if (newOwnerItem) {
+        const ownerBadge = document.createElement('span');
+        ownerBadge.className = 'badge bg-warning owner-badge';
+        ownerBadge.textContent = 'Owner';
+        newOwnerItem.insertBefore(ownerBadge, newOwnerItem.querySelector('small'));
+    }
+    
+    // Update UI if current user is the new owner
+    if (currentUserId === data.new_owner_id) {
+        // Update owner alert
+        const ownerAlert = document.createElement('div');
+        ownerAlert.className = 'alert alert-warning';
+        ownerAlert.id = 'owner-alert';
+        ownerAlert.innerHTML = `
+            <strong>You are now the lobby owner!</strong>
+            <p class="mb-0">The previous owner (${data.previous_owner}) left the lobby.</p>
+            <p class="mb-0">Click "Start Game" when all players have joined.</p>
+        `;
+        
+        const nonOwnerAlert = document.getElementById('non-owner-alert');
+        if (nonOwnerAlert) {
+            nonOwnerAlert.replaceWith(ownerAlert);
+        } else {
+            // If neither alert exists, add the owner alert to the appropriate container
+            const infoCard = document.querySelector('.card-body');
+            if (infoCard) {
+                infoCard.appendChild(ownerAlert);
+            }
+        }
+        
+        // Add start game button if it doesn't exist
+        if (!document.querySelector('form[action*="start_game"]')) {
+            const cardFooter = document.querySelector('.card-footer');
+            const formElement = document.createElement('form');
+            formElement.method = 'POST';
+            formElement.action = `/lobby/${lobbyCode}/start`;
+            
+            const startButton = document.createElement('button');
+            startButton.type = 'submit';
+            startButton.className = 'btn btn-success';
+            startButton.textContent = 'Start Game';
+            
+            formElement.appendChild(startButton);
+            cardFooter.appendChild(formElement);
+            
+            // Update the layout to maintain the space between buttons
+            cardFooter.className = 'd-flex justify-content-between';
+        }
+    }
+    
+    // Log the activity
+    logActivity(`${data.previous_owner} left the lobby. ${data.new_owner} is now the owner.`);
 });
 
 // Function to log activity to the activity log

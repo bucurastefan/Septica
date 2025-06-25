@@ -9,24 +9,28 @@
             <h4 class="mb-0">Manage Game Lobbies</h4>
         </div>
         <div class="card-body">
-            {% if lobbies %}
+            <div id="lobbies-container">
                 <div class="table-responsive">
                     <table class="table table-striped table-hover">
                         <thead>
                             <tr>
-                                <th>Lobby Code</th>
+                                <th>Lobby Name</th>
+                                <th>Code</th>
                                 <th>Owner</th>
                                 <th>Players</th>
+                                <th>Status</th>
                                 <th>Created At</th>
                                 <th>Actions</th>
                             </tr>
                         </thead>
-                        <tbody>
+                        <tbody id="lobbies-table-body">
                             {% for lobby in lobbies %}
-                            <tr>
+                            <tr id="lobby-row-{{ lobby.code }}" data-lobby-code="{{ lobby.code }}">
+                                <td>{{ lobby.name or 'Lobby #' + lobby.code }}</td>
                                 <td>{{ lobby.code }}</td>
-                                <td>{{ lobby.owner.username }}</td>
-                                <td>{{ lobby.player_count }}</td>
+                                <td id="lobby-owner-{{ lobby.code }}">{{ lobby.owner.username }}</td>
+                                <td id="lobby-player-count-{{ lobby.code }}">{{ lobby.player_count }}</td>
+                                <td><span class="badge bg-success">Active</span></td>
                                 <td>{{ lobby.created_at.strftime('%Y-%m-%d %H:%M:%S') }}</td>
                                 <td>
                                     <div class="btn-group" role="group">
@@ -63,18 +67,218 @@
                                 </td>
                             </tr>
                             {% endfor %}
+                            {% if not lobbies %}
+                            <tr id="no-lobbies-row">
+                                <td colspan="7" class="text-center">
+                                    <div class="alert alert-info mb-0" id="no-lobbies-message">
+                                        No active lobbies found.
+                                    </div>
+                                </td>
+                            </tr>
+                            {% endif %}
                         </tbody>
                     </table>
                 </div>
-            {% else %}
-                <div class="alert alert-info">
-                    No active lobbies found.
-                </div>
-            {% endif %}
+            </div>
         </div>
         <div class="card-footer">
             <a href="{{ url_for('admin_dashboard') }}" class="btn btn-primary">Back to Dashboard</a>
         </div>
     </div>
 </div>
+
+<!-- Socket.IO Client Script -->
+<script src="https://cdn.socket.io/4.6.0/socket.io.min.js"></script>
+
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    // Connect to Socket.IO server
+    const socket = io();
+    let lobbiesTableBody = document.getElementById('lobbies-table-body');
+    
+    // Handle new lobby creation
+    socket.on('admin_lobby_created', function(data) {
+        console.log("Received admin_lobby_created event:", data);
+        
+        // Check if lobby already exists in table (avoid duplicates)
+        if (!document.getElementById(`lobby-row-${data.lobby_code}`)) {
+            // Remove the "No lobbies" message if present
+            const noLobbiesRow = document.getElementById('no-lobbies-row');
+            if (noLobbiesRow) {
+                noLobbiesRow.remove();
+            }
+            
+            // Create new row
+            const newRow = document.createElement('tr');
+            newRow.id = `lobby-row-${data.lobby_code}`;
+            newRow.setAttribute('data-lobby-code', data.lobby_code);
+            
+            // Create a unique modal ID for this new lobby
+            const modalId = `deleteModalNew${data.lobby_code}`;
+            
+            // Add row with animation
+            newRow.innerHTML = `
+                <td>${data.lobby_name || 'Lobby #' + data.lobby_code}</td>
+                <td>${data.lobby_code}</td>
+                <td id="lobby-owner-${data.lobby_code}">${data.owner_username}</td>
+                <td id="lobby-player-count-${data.lobby_code}">1</td>
+                <td><span class="badge bg-success">Active</span></td>
+                <td>${data.created_at}</td>
+                <td>
+                    <div class="btn-group" role="group">
+                        <a href="/admin/lobby/${data.lobby_code}" 
+                           class="btn btn-sm btn-info">View</a>
+                        <button type="button" class="btn btn-sm btn-danger" 
+                                data-bs-toggle="modal" 
+                                data-bs-target="#${modalId}">
+                            Delete
+                        </button>
+                    </div>
+                    
+                    <!-- Delete Confirmation Modal -->
+                    <div class="modal fade" id="${modalId}" tabindex="-1">
+                        <div class="modal-dialog">
+                            <div class="modal-content">
+                                <div class="modal-header bg-danger text-white">
+                                    <h5 class="modal-title">Confirm Delete</h5>
+                                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                                </div>
+                                <div class="modal-body">
+                                    Are you sure you want to delete lobby <strong>${data.lobby_code}</strong>?
+                                    This will kick all players from the lobby.
+                                </div>
+                                <div class="modal-footer">
+                                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+                                    <form action="/admin/lobby/${data.lobby_code}/delete" method="POST">
+                                        <button type="submit" class="btn btn-danger">Delete Lobby</button>
+                                    </form>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </td>
+            `;
+            
+            // Add highlight effect
+            newRow.classList.add('bg-success', 'bg-opacity-25');
+            
+            // Add the row to the table
+            if (lobbiesTableBody) {
+                lobbiesTableBody.appendChild(newRow);
+                
+                // Remove highlight effect after 3 seconds
+                setTimeout(() => {
+                    newRow.classList.remove('bg-success', 'bg-opacity-25');
+                }, 3000);
+            }
+        }
+    });
+    
+    // Handle player joining a lobby
+    socket.on('admin_player_joined', function(data) {
+        const playerCountCell = document.getElementById(`lobby-player-count-${data.lobby_code}`);
+        if (playerCountCell) {
+            // Update player count
+            playerCountCell.textContent = data.player_count;
+            // Briefly highlight the cell
+            playerCountCell.classList.add('bg-info', 'bg-opacity-25');
+            setTimeout(() => {
+                playerCountCell.classList.remove('bg-info', 'bg-opacity-25');
+            }, 2000);
+        }
+    });
+    
+    // Handle player leaving a lobby
+    socket.on('admin_player_left', function(data) {
+        const playerCountCell = document.getElementById(`lobby-player-count-${data.lobby_code}`);
+        if (playerCountCell) {
+            // Update player count
+            playerCountCell.textContent = data.player_count;
+            
+            // If this is the last player leaving, mark lobby as inactive
+            if (data.player_count === 0) {
+                // Get the row and mark it for removal
+                const row = document.getElementById(`lobby-row-${data.lobby_code}`);
+                if (row) {
+                    row.classList.add('bg-danger', 'bg-opacity-25');
+                    // Change status badge
+                    const statusCell = row.querySelector('td:nth-child(5)');
+                    if (statusCell) {
+                        statusCell.innerHTML = '<span class="badge bg-danger">Inactive</span>';
+                    }
+                    // Remove after animation
+                    setTimeout(() => {
+                        row.remove();
+                        
+                        // Check if there are no more lobbies
+                        const tableRows = document.querySelectorAll('#lobbies-table-body tr:not(#no-lobbies-row)');
+                        if (tableRows.length === 0) {
+                            lobbiesTableBody.innerHTML = `
+                                <tr id="no-lobbies-row">
+                                    <td colspan="7" class="text-center">
+                                        <div class="alert alert-info mb-0" id="no-lobbies-message">
+                                            No active lobbies found.
+                                        </div>
+                                    </td>
+                                </tr>
+                            `;
+                        }
+                    }, 3000);
+                }
+            } else {
+                // Just highlight the cell
+                playerCountCell.classList.add('bg-warning', 'bg-opacity-25');
+                setTimeout(() => {
+                    playerCountCell.classList.remove('bg-warning', 'bg-opacity-25');
+                }, 2000);
+            }
+        }
+    });
+    
+    // Handle owner change in a lobby
+    socket.on('admin_owner_changed', function(data) {
+        const ownerCell = document.getElementById(`lobby-owner-${data.lobby_code}`);
+        if (ownerCell) {
+            // Update owner name
+            ownerCell.textContent = data.new_owner;
+            // Briefly highlight the cell
+            ownerCell.classList.add('bg-warning', 'bg-opacity-25');
+            setTimeout(() => {
+                ownerCell.classList.remove('bg-warning', 'bg-opacity-25');
+            }, 2000);
+        }
+    });
+    
+    // Handle lobby becoming inactive
+    socket.on('admin_lobby_inactive', function(data) {
+        const row = document.getElementById(`lobby-row-${data.lobby_code}`);
+        if (row) {
+            row.classList.add('bg-danger', 'bg-opacity-25');
+            // Change status badge
+            const statusCell = row.querySelector('td:nth-child(5)');
+            if (statusCell) {
+                statusCell.innerHTML = '<span class="badge bg-danger">Inactive</span>';
+            }
+            // Remove after animation
+            setTimeout(() => {
+                row.remove();
+                
+                // Check if there are no more lobbies
+                const tableRows = document.querySelectorAll('#lobbies-table-body tr:not(#no-lobbies-row)');
+                if (tableRows.length === 0) {
+                    lobbiesTableBody.innerHTML = `
+                        <tr id="no-lobbies-row">
+                            <td colspan="7" class="text-center">
+                                <div class="alert alert-info mb-0" id="no-lobbies-message">
+                                    No active lobbies found.
+                                </div>
+                            </td>
+                        </tr>
+                    `;
+                }
+            }, 3000);
+        }
+    });
+});
+</script>
 {% endblock %}

@@ -5,8 +5,11 @@
 {% block content %}
 <div class="container mt-4">
     <div class="card shadow">
-        <div class="card-header bg-info text-white">
+        <div class="card-header bg-info text-white d-flex justify-content-between align-items-center">
             <h4 class="mb-0">Lobby Details: {{ lobby.code }}</h4>
+            <button id="refresh-lobby" class="btn btn-light btn-sm">
+                <i class="bi bi-arrow-clockwise"></i> Refresh
+            </button>
         </div>
         <div class="card-body">
             <div class="row">
@@ -17,6 +20,9 @@
                         </div>
                         <div class="card-body">
                             <dl class="row">
+                                <dt class="col-sm-4">Lobby Name</dt>
+                                <dd class="col-sm-8" id="lobby-name">{{ lobby.name or 'Lobby #' + lobby.code }}</dd>
+                                
                                 <dt class="col-sm-4">Lobby Code</dt>
                                 <dd class="col-sm-8">{{ lobby.code }}</dd>
                                 
@@ -24,7 +30,7 @@
                                 <dd class="col-sm-8">{{ lobby.created_at.strftime('%Y-%m-%d %H:%M:%S') }}</dd>
                                 
                                 <dt class="col-sm-4">Status</dt>
-                                <dd class="col-sm-8">
+                                <dd class="col-sm-8" id="lobby-status">
                                     {% if lobby.is_active %}
                                         <span class="badge bg-success">Active</span>
                                     {% else %}
@@ -33,16 +39,25 @@
                                 </dd>
                                 
                                 <dt class="col-sm-4">Owner</dt>
-                                <dd class="col-sm-8">{{ lobby.owner.username }} (ID: {{ lobby.owner.id }})</dd>
+                                <dd class="col-sm-8" id="lobby-owner">{{ lobby.owner.username }} (ID: {{ lobby.owner.id }})</dd>
                                 
                                 <dt class="col-sm-4">Total Players</dt>
-                                <dd class="col-sm-8">{{ lobby.player_count }}</dd>
+                                <dd class="col-sm-8" id="player-count">{{ lobby.player_count }}</dd>
+                                
+                                <dt class="col-sm-4">Visibility</dt>
+                                <dd class="col-sm-8">
+                                    {% if lobby.is_public %}
+                                        <span class="badge bg-success">Public</span>
+                                    {% else %}
+                                        <span class="badge bg-secondary">Private</span>
+                                    {% endif %}
+                                </dd>
                             </dl>
                         </div>
                     </div>
                 </div>
                 <div class="col-md-6">
-                    <div class="card">
+                    <div class="card mb-3">
                         <div class="card-header bg-light">
                             <h5 class="mb-0">Actions</h5>
                         </div>
@@ -52,48 +67,211 @@
                             </form>
                         </div>
                     </div>
+                    
+                    <div class="card">
+                        <div class="card-header bg-secondary text-white">
+                            <h5 class="mb-0">Live Activity</h5>
+                        </div>
+                        <div class="card-body">
+                            <div id="activity-log" style="max-height: 200px; overflow-y: auto;">
+                                <p class="text-muted text-center">Real-time activity will appear here...</p>
+                            </div>
+                        </div>
+                    </div>
                 </div>
             </div>
             
             <h5 class="mt-4">Players in Lobby</h5>
-            {% if lobby.players %}
-                <div class="table-responsive">
-                    <table class="table table-striped table-hover">
-                        <thead>
-                            <tr>
-                                <th>Username</th>
-                                <th>Email</th>
-                                <th>Joined At</th>
-                                <th>Role</th>
-                            </tr>
-                        </thead>
-                        <tbody>
-                            {% for player in lobby.players %}
-                            <tr>
-                                <td>{{ player.user.username }}</td>
-                                <td>{{ player.user.email }}</td>
-                                <td>{{ player.joined_at.strftime('%Y-%m-%d %H:%M:%S') }}</td>
-                                <td>
-                                    {% if player.user.id == lobby.owner_id %}
-                                        <span class="badge bg-warning">Owner</span>
-                                    {% else %}
-                                        <span class="badge bg-info">Player</span>
-                                    {% endif %}
-                                </td>
-                            </tr>
-                            {% endfor %}
-                        </tbody>
-                    </table>
-                </div>
-            {% else %}
-                <div class="alert alert-info">
-                    No players in this lobby.
-                </div>
-            {% endif %}
+            <div id="players-container">
+                {% if lobby.players %}
+                    <div class="table-responsive">
+                        <table class="table table-striped table-hover">
+                            <thead>
+                                <tr>
+                                    <th>Username</th>
+                                    <th>Email</th>
+                                    <th>Joined At</th>
+                                    <th>Role</th>
+                                </tr>
+                            </thead>
+                            <tbody id="players-table-body">
+                                {% for player in lobby.players %}
+                                <tr id="player-row-{{ player.user.id }}" data-user-id="{{ player.user.id }}">
+                                    <td>{{ player.user.username }}</td>
+                                    <td>{{ player.user.email }}</td>
+                                    <td>{{ player.joined_at.strftime('%Y-%m-%d %H:%M:%S') }}</td>
+                                    <td>
+                                        {% if player.user.id == lobby.owner_id %}
+                                            <span class="badge bg-warning owner-badge">Owner</span>
+                                        {% else %}
+                                            <span class="badge bg-info">Player</span>
+                                        {% endif %}
+                                    </td>
+                                </tr>
+                                {% endfor %}
+                            </tbody>
+                        </table>
+                    </div>
+                {% else %}
+                    <div class="alert alert-info">
+                        No players in this lobby.
+                    </div>
+                {% endif %}
+            </div>
         </div>
         <div class="card-footer">
             <a href="{{ url_for('admin_lobbies') }}" class="btn btn-primary">Back to Lobbies</a>
         </div>
     </div>
 </div>
+
+<!-- Socket.IO Client Script -->
+<script src="https://cdn.socket.io/4.6.0/socket.io.min.js"></script>
+
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    // Connect to Socket.IO server
+    const socket = io();
+    const lobbyCode = "{{ lobby.code }}";
+    const playersTableBody = document.getElementById('players-table-body');
+    const playerCountElement = document.getElementById('player-count');
+    const activityLogElement = document.getElementById('activity-log');
+    const refreshButton = document.getElementById('refresh-lobby');
+    
+    // Join the admin lobby room for this specific lobby
+    socket.emit('join_admin_lobby_room', { lobby_code: lobbyCode });
+    
+    // Handle player joining the lobby
+    socket.on('admin_lobby_player_joined', function(data) {
+        // Log the activity
+        logActivity(`<strong>${data.username}</strong> joined the lobby`);
+        
+        // Check if player is already in the table (avoid duplicates)
+        if (!document.querySelector(`tr[data-user-id="${data.user_id}"]`)) {
+            // Fetch the player details to add them to the table
+            fetch(`/admin/user/${data.user_id}`)
+                .then(response => {
+                    if (response.ok) {
+                        // Reload the page to update the players list
+                        // This is a simple approach - a more advanced approach would add the player 
+                        // to the table without reloading, but we'd need an API to get player details
+                        window.location.reload();
+                    }
+                });
+        }
+        
+        // Update player count
+        playerCountElement.textContent = parseInt(playerCountElement.textContent) + 1;
+    });
+    
+    // Handle player leaving the lobby
+    socket.on('admin_lobby_player_left', function(data) {
+        // Log the activity
+        let activityMessage = `<strong>${data.username}</strong> left the lobby`;
+        
+        // If player was the owner
+        if (data.is_owner && data.new_owner) {
+            activityMessage += `. <strong>${data.new_owner}</strong> is now the owner.`;
+            
+            // Update owner display
+            document.getElementById('lobby-owner').innerHTML = `${data.new_owner} <span class="badge bg-success ms-1">New Owner</span>`;
+            
+            // Update badges
+            const ownerBadges = document.querySelectorAll('.owner-badge');
+            ownerBadges.forEach(badge => {
+                badge.classList.remove('bg-warning', 'owner-badge');
+                badge.classList.add('bg-info');
+                badge.textContent = 'Player';
+            });
+            
+            // Add owner badge to new owner
+            const newOwnerRow = document.querySelector(`tr[data-user-id="${data.new_owner_id}"]`);
+            if (newOwnerRow) {
+                const badgeCell = newOwnerRow.querySelector('td:last-child');
+                badgeCell.innerHTML = '<span class="badge bg-warning owner-badge">Owner</span>';
+            }
+        }
+        
+        logActivity(activityMessage);
+        
+        // Remove player from table with animation
+        const playerRow = document.querySelector(`tr[data-user-id="${data.user_id}"]`);
+        if (playerRow) {
+            playerRow.classList.add('bg-danger', 'bg-opacity-25');
+            setTimeout(() => {
+                playerRow.remove();
+                
+                // Update player count
+                const newCount = parseInt(playerCountElement.textContent) - 1;
+                playerCountElement.textContent = newCount;
+                
+                // Check if there are no more players
+                if (newCount === 0) {
+                    document.getElementById('players-container').innerHTML = `
+                        <div class="alert alert-info">
+                            No players in this lobby.
+                        </div>
+                    `;
+                    
+                    // Update lobby status if it became inactive
+                    document.getElementById('lobby-status').innerHTML = '<span class="badge bg-danger">Inactive</span>';
+                }
+            }, 1500);
+        }
+    });
+    
+    // Also listen to general admin events for this lobby
+    socket.on('admin_lobby_inactive', function(data) {
+        if (data.lobby_code === lobbyCode) {
+            document.getElementById('lobby-status').innerHTML = '<span class="badge bg-danger">Inactive</span>';
+            logActivity('<strong>Lobby is now inactive</strong>');
+        }
+    });
+    
+    socket.on('admin_owner_changed', function(data) {
+        if (data.lobby_code === lobbyCode) {
+            document.getElementById('lobby-owner').textContent = `${data.new_owner} (ID: updated)`;
+            logActivity(`Owner changed from <strong>${data.previous_owner}</strong> to <strong>${data.new_owner}</strong>`);
+        }
+    });
+    
+    // Function to log activity to the activity log
+    function logActivity(message) {
+        // Clear "no activity" message if it exists
+        if (activityLogElement.querySelector('.text-muted')) {
+            activityLogElement.innerHTML = '';
+        }
+        
+        // Create a timestamp
+        const timestamp = new Date().toLocaleTimeString();
+        
+        // Create activity item
+        const activityItem = document.createElement('div');
+        activityItem.className = 'mb-2 border-bottom pb-2';
+        activityItem.innerHTML = `
+            <div class="small text-muted">${timestamp}</div>
+            <div>${message}</div>
+        `;
+        
+        // Add to the top of the log
+        activityLogElement.insertBefore(activityItem, activityLogElement.firstChild);
+    }
+    
+    // Refresh button functionality
+    refreshButton.addEventListener('click', function() {
+        // Show loading spinner in refresh button
+        refreshButton.innerHTML = `
+            <span class="spinner-border spinner-border-sm" role="status" aria-hidden="true"></span> 
+            Refreshing...
+        `;
+        refreshButton.disabled = true;
+        
+        // Reload the page
+        window.location.reload();
+    });
+    
+    // Log initial connection
+    logActivity('Monitoring lobby activity...');
+});
+</script>
 {% endblock %}

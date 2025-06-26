@@ -12,14 +12,38 @@
                 </div>
                 <div class="card-body">
                     <h5>Welcome Administrator!</h5>
-                    <p>From this dashboard, you can manage all users of the platform.</p>
+                    <p>From this dashboard, you can manage all users and game lobbies of the platform.</p>
                     
                     <div class="row mt-4">
                         <div class="col-md-4">
                             <div class="card bg-info text-white mb-3">
                                 <div class="card-body">
                                     <h5 class="card-title">Total Users</h5>
-                                    <p class="card-text display-4">{{ user_count }}</p>
+                                    <p class="card-text display-4" id="user-count">{{ user_count }}</p>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="col-md-4">
+                            <div class="card bg-success text-white mb-3">
+                                <div class="card-body">
+                                    <h5 class="card-title">Active Lobbies</h5>
+                                    <p class="card-text display-4" id="lobby-count">{{ lobby_count }}</p>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <div class="row mt-4">
+                        <div class="col-12">
+                            <div class="card">
+                                <div class="card-header bg-primary text-white d-flex justify-content-between align-items-center">
+                                    <h5 class="mb-0">Live Activity</h5>
+                                    <button class="btn btn-sm btn-light" id="clear-activity">Clear</button>
+                                </div>
+                                <div class="card-body">
+                                    <div id="activity-log" style="max-height: 300px; overflow-y: auto;">
+                                        <p class="text-muted text-center">Real-time activity will appear here...</p>
+                                    </div>
                                 </div>
                             </div>
                         </div>
@@ -27,10 +51,142 @@
                 </div>
                 <div class="card-footer">
                     <a href="{{ url_for('admin_users') }}" class="btn btn-primary">Manage Users</a>
+                    <a href="{{ url_for('admin_lobbies') }}" class="btn btn-success">Manage Lobbies</a>
                     <a href="{{ url_for('logout') }}" class="btn btn-danger float-end">Logout</a>
                 </div>
             </div>
         </div>
     </div>
 </div>
+
+<!-- Socket.IO Client Script -->
+<script src="https://cdn.socket.io/4.6.0/socket.io.min.js"></script>
+
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    // Connect to Socket.IO server
+    const socket = io();
+    
+    // Elements
+    const userCountElement = document.getElementById('user-count');
+    const lobbyCountElement = document.getElementById('lobby-count');
+    const activityLogElement = document.getElementById('activity-log');
+    const clearActivityButton = document.getElementById('clear-activity');
+    
+    // Handle new lobby creation
+    socket.on('admin_lobby_created', function(data) {
+        // Update lobby count
+        const currentCount = parseInt(lobbyCountElement.textContent) || 0;
+        lobbyCountElement.textContent = currentCount + 1;
+        
+        // Log activity with formatted timestamp
+        logActivity(`
+            <div class="alert alert-success mb-2">
+                <strong>New Lobby Created:</strong> ${data.lobby_name} (${data.lobby_code})
+                <br>
+                <small>Owner: ${data.owner_username} | Type: ${data.is_public ? 'Public' : 'Private'}</small>
+            </div>
+        `);
+    });
+    
+    // Handle player joining a lobby
+    socket.on('admin_player_joined', function(data) {
+        logActivity(`
+            <div class="alert alert-info mb-2">
+                <strong>Player Joined:</strong> ${data.username} joined ${data.lobby_name} (${data.lobby_code})
+                <br>
+                <small>Current player count: ${data.player_count}</small>
+            </div>
+        `);
+    });
+    
+    // Handle player leaving a lobby
+    socket.on('admin_player_left', function(data) {
+        let message = `
+            <div class="alert alert-warning mb-2">
+                <strong>Player Left:</strong> ${data.username} left ${data.lobby_name} (${data.lobby_code})
+                <br>
+                <small>Current player count: ${data.player_count}</small>
+            </div>
+        `;
+        
+        // If this was the last player, show lobby inactive notice
+        if (data.player_count === 0) {
+            message = `
+                <div class="alert alert-danger mb-2">
+                    <strong>Lobby Inactive:</strong> ${data.lobby_name} (${data.lobby_code}) is now inactive
+                    <br>
+                    <small>Last player (${data.username}) left the lobby</small>
+                </div>
+            `;
+            // Update lobby count, ensuring it doesn't go below 0
+            const currentCount = parseInt(lobbyCountElement.textContent) || 0;
+            lobbyCountElement.textContent = Math.max(0, currentCount - 1);
+        } 
+        // If owner left and there was an ownership transfer
+        else if (data.is_owner && data.new_owner) {
+            message = `
+                <div class="alert alert-primary mb-2">
+                    <strong>Owner Left:</strong> ${data.username} (owner) left ${data.lobby_name} (${data.lobby_code})
+                    <br>
+                    <small>New owner: ${data.new_owner} | Current player count: ${data.player_count}</small>
+                </div>
+            `;
+        }
+        
+        logActivity(message);
+    });
+    
+    // Handle lobby becoming inactive
+    socket.on('admin_lobby_inactive', function(data) {
+        // Update lobby count, ensuring it doesn't go below 0
+        const currentCount = parseInt(lobbyCountElement.textContent) || 0;
+        lobbyCountElement.textContent = Math.max(0, currentCount - 1);
+        
+        logActivity(`
+            <div class="alert alert-danger mb-2">
+                <strong>Lobby Inactive:</strong> ${data.lobby_name} (${data.lobby_code}) is now inactive
+            </div>
+        `);
+    });
+    
+    // Handle ownership change in a lobby
+    socket.on('admin_owner_changed', function(data) {
+        logActivity(`
+            <div class="alert alert-primary mb-2">
+                <strong>Owner Change:</strong> Lobby ${data.lobby_name} (${data.lobby_code})
+                <br>
+                <small>Previous owner: ${data.previous_owner} | New owner: ${data.new_owner}</small>
+            </div>
+        `);
+    });
+    
+    // Function to log activity to the activity log
+    function logActivity(html) {
+        // Clear "no activity" message if it exists
+        if (activityLogElement.querySelector('.text-muted')) {
+            activityLogElement.innerHTML = '';
+        }
+        
+        // Create a timestamp
+        const timestamp = new Date().toLocaleTimeString();
+        
+        // Create container element with timestamp
+        const container = document.createElement('div');
+        container.className = 'activity-item';
+        container.innerHTML = `
+            <div class="mb-1 small text-muted">${timestamp}</div>
+            ${html}
+        `;
+        
+        // Add to the top of the log
+        activityLogElement.insertBefore(container, activityLogElement.firstChild);
+    }
+    
+    // Clear activity log when clear button is clicked
+    clearActivityButton.addEventListener('click', function() {
+        activityLogElement.innerHTML = '<p class="text-muted text-center">Activity log cleared</p>';
+    });
+});
+</script>
 {% endblock %}

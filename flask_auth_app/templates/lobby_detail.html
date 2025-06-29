@@ -3,50 +3,75 @@
 {% block title %}Lobby {{ lobby.code }} - Șeptică{% endblock %}
 
 {% block content %}
-<div class="container mt-4">
+<div class="container animate-fade-in">
+    <h1 class="page-title text-center mb-4">Lobby Details</h1>
+    
     <div class="row">
         <div class="col-lg-8">
             <div class="card shadow mb-4">
-                <div class="card-header bg-primary text-white d-flex justify-content-between align-items-center">
+                <div class="card-header d-flex justify-content-between align-items-center">
                     <h4 class="mb-0">
+                        <i class="fas fa-gamepad me-2"></i>
                         {{ lobby.name or 'Lobby #' + lobby.code }}
                         {% if lobby.is_public %}
-                            <span class="badge bg-success">Public</span>
+                            <span class="badge bg-success">
+                                <i class="fas fa-globe me-1"></i> Public
+                            </span>
                         {% else %}
-                            <span class="badge bg-secondary">Private</span>
+                            <span class="badge bg-secondary">
+                                <i class="fas fa-lock me-1"></i> Private
+                            </span>
                         {% endif %}
                     </h4>
-                    <button class="btn btn-light btn-sm" onclick="copyLobbyCode()">
-                        <i class="bi bi-clipboard"></i> Copy Code
+                    <button class="btn btn-outline-primary btn-sm" onclick="copyLobbyCode()">
+                        <i class="fas fa-clipboard me-1"></i> Copy Code
                     </button>
                 </div>
                 <div class="card-body">
                     <div class="alert alert-info mb-4">
-                        <strong>Lobby Code:</strong> <span id="lobbyCode">{{ lobby.code }}</span>
-                        <p class="mb-0 mt-2">Share this code with friends so they can join your lobby!</p>
+                        <div class="d-flex align-items-center">
+                            <i class="fas fa-info-circle me-3 fa-2x"></i>
+                            <div>
+                                <strong>Lobby Code:</strong> <span id="lobbyCode" class="fw-bold">{{ lobby.code }}</span>
+                                <p class="mb-0 mt-2">Share this code with friends so they can join your lobby!</p>
+                            </div>
+                        </div>
                     </div>
                     
-                    <h5>Players (<span id="player-count">{{ lobby.player_count }}</span>)</h5>
+                    <h5><i class="fas fa-users me-2"></i> Players (<span id="player-count">{{ lobby.player_count }}</span>)</h5>
                     <ul class="list-group" id="players-list">
                         {% for player in lobby.players %}
-                            <li class="list-group-item d-flex justify-content-between align-items-center player-item" data-user-id="{{ player.user.id }}" data-username="{{ player.user.username }}">
-                                {{ player.user.username }}
-                                {% if player.user.id == lobby.owner_id %}
-                                    <span class="badge bg-warning owner-badge">Owner</span>
-                                {% endif %}
-                                <small>Joined: {{ player.joined_at.strftime('%H:%M:%S') }}</small>
+                            <li class="list-group-item d-flex justify-content-between align-items-center player-item lobby-card" data-user-id="{{ player.user.id }}" data-username="{{ player.user.username }}">
+                                <div>
+                                    <i class="fas fa-user me-2"></i>
+                                    <span class="fw-bold">{{ player.user.username }}</span>
+                                </div>
+                                <div>
+                                    {% if player.user.id == lobby.owner_id %}
+                                        <span class="badge bg-warning text-dark">
+                                            <i class="fas fa-crown me-1"></i> Owner
+                                        </span>
+                                    {% endif %}
+                                    <small class="ms-2 text-muted">
+                                        <i class="far fa-clock me-1"></i> Joined: {{ player.joined_at.strftime('%H:%M:%S') }}
+                                    </small>
+                                </div>
                             </li>
                         {% endfor %}
                     </ul>
                 </div>
                 <div class="card-footer d-flex justify-content-between">
                     <form method="POST" action="{{ url_for('leave_lobby', lobby_code=lobby.code) }}">
-                        <button type="submit" class="btn btn-danger">Leave Lobby</button>
+                        <button type="submit" class="btn btn-danger">
+                            <i class="fas fa-sign-out-alt me-2"></i> Leave Lobby
+                        </button>
                     </form>
                     
                     {% if is_owner %}
                         <form method="POST" action="{{ url_for('start_game', lobby_code=lobby.code) }}">
-                            <button type="submit" class="btn btn-success">Start Game</button>
+                            <button type="submit" class="btn btn-success">
+                                <i class="fas fa-play me-2"></i> Start Game
+                            </button>
                         </form>
                     {% endif %}
                 </div>

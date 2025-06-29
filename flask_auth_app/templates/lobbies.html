@@ -1,45 +1,59 @@
 {% extends "base.html" %}
 
-{% block title %}Game Lobbies - Flask Auth App{% endblock %}
+{% block title %}Game Lobbies - Șeptică{% endblock %}
 
 {% block content %}
-<div class="container mt-4">
+<div class="container animate-fade-in">
+    <h1 class="page-title text-center mb-4">Game Lobbies</h1>
+    
     <div class="row">
         <div class="col-lg-8">
             <div class="card shadow mb-4">
-                <div class="card-header bg-primary text-white">
-                    <h4 class="mb-0">Your Lobbies</h4>
+                <div class="card-header">
+                    <i class="fas fa-bookmark me-2"></i> Your Lobbies
                 </div>
                 <div class="card-body">
                     {% if user_lobbies %}
                         <div class="list-group">
                             {% for lobby in user_lobbies %}
-                                <a href="{{ url_for('lobby_detail', lobby_code=lobby.code) }}" class="list-group-item list-group-item-action">
+                                <a href="{{ url_for('lobby_detail', lobby_code=lobby.code) }}" class="list-group-item list-group-item-action lobby-card mb-3">
                                     <div class="d-flex w-100 justify-content-between">
-                                        <h5 class="mb-1">{{ lobby.name or 'Lobby #' + lobby.code }}</h5>
-                                        <small>{{ lobby.player_count }} player(s)</small>
+                                        <h5 class="mb-1 fw-bold">{{ lobby.name or 'Lobby #' + lobby.code }}</h5>
+                                        <span class="badge badge-primary">{{ lobby.player_count }} player(s)</span>
                                     </div>
                                     <p class="mb-1">
                                         {% if lobby.owner_id == user.id %}
-                                            <span class="badge bg-warning">Owner</span>
+                                            <span class="badge bg-warning text-dark">
+                                                <i class="fas fa-crown me-1"></i> Owner
+                                            </span>
                                         {% else %}
-                                            <span class="badge bg-info">Member</span>
+                                            <span class="badge bg-info">
+                                                <i class="fas fa-user me-1"></i> Member
+                                            </span>
                                         {% endif %}
                                         {% if lobby.is_public %}
-                                            <span class="badge bg-success">Public</span>
+                                            <span class="badge bg-success">
+                                                <i class="fas fa-globe me-1"></i> Public
+                                            </span>
                                         {% else %}
-                                            <span class="badge bg-secondary">Private</span>
+                                            <span class="badge bg-secondary">
+                                                <i class="fas fa-lock me-1"></i> Private
+                                            </span>
                                         {% endif %}
-                                        Created {{ lobby.created_at.strftime('%Y-%m-%d %H:%M') }}
+                                        <span class="text-muted ms-2">
+                                            <i class="far fa-clock me-1"></i> Created {{ lobby.created_at.strftime('%Y-%m-%d %H:%M') }}
+                                        </span>
                                     </p>
                                 </a>
                             {% endfor %}
                         </div>
                         <div class="alert alert-warning mt-3">
+                            <i class="fas fa-exclamation-triangle me-2"></i>
                             <strong>Note:</strong> You can only be in one lobby at a time. To join or create another lobby, leave your current one first.
                         </div>
                     {% else %}
                         <div class="alert alert-info">
+                            <i class="fas fa-info-circle me-2"></i>
                             You are not in any active lobbies. Create a new lobby or join an existing one!
                         </div>
                     {% endif %}
@@ -48,7 +62,10 @@
             
             <!-- Public Lobbies Section -->
             <div class="card shadow mb-4">
-                <div class="card-header bg-primary text-white d-flex justify-content-between align-items-center">
+                <div class="card-header d-flex justify-content-between align-items-center">
+                    <div>
+                        <i class="fas fa-users me-2"></i> Public Lobbies
+                    </div>
                     <h4 class="mb-0">Public Lobbies</h4>
                     <button id="refresh-lobbies" class="btn btn-light btn-sm">
                         <i class="bi bi-arrow-clockwise"></i> Refresh

@@ -3,10 +3,12 @@
 {% block title %}Manage Users - Admin Panel{% endblock %}
 
 {% block content %}
-<div class="container mt-4">
+<div class="container animate-fade-in">
+    <h1 class="page-title text-center mb-4">Manage Users</h1>
+    
     <div class="card shadow">
-        <div class="card-header bg-dark text-white">
-            <h4 class="mb-0">Manage Users</h4>
+        <div class="card-header">
+            <i class="fas fa-users me-2"></i> User Management
         </div>
         <div class="card-body">
             {% if users %}
@@ -25,19 +27,23 @@
                             {% for user in users %}
                             <tr>
                                 <td>{{ user.id }}</td>
-                                <td>{{ user.username }}</td>
-                                <td>{{ user.email }}</td>
-                                <td>{{ user.created_at.strftime('%Y-%m-%d %H:%M:%S') }}</td>
+                                <td><i class="fas fa-user me-2"></i>{{ user.username }}</td>
+                                <td><i class="fas fa-envelope me-2"></i>{{ user.email }}</td>
+                                <td><i class="far fa-calendar-alt me-2"></i>{{ user.created_at.strftime('%Y-%m-%d %H:%M:%S') }}</td>
                                 <td>
                                     <div class="btn-group" role="group">
                                         <a href="{{ url_for('admin_user_details', user_id=user.id) }}" 
-                                           class="btn btn-sm btn-info">View</a>
+                                           class="btn btn-sm btn-info">
+                                           <i class="fas fa-eye me-1"></i> View
+                                        </a>
                                         <a href="{{ url_for('admin_edit_user', user_id=user.id) }}" 
-                                           class="btn btn-sm btn-warning">Edit</a>
+                                           class="btn btn-sm btn-warning">
+                                           <i class="fas fa-edit me-1"></i> Edit
+                                        </a>
                                         <button type="button" class="btn btn-sm btn-danger" 
                                                 data-bs-toggle="modal" 
                                                 data-bs-target="#deleteModal{{ user.id }}">
-                                            Delete
+                                            <i class="fas fa-trash-alt me-1"></i> Delete
                                         </button>
                                     </div>
                                     
@@ -45,8 +51,8 @@
                                     <div class="modal fade" id="deleteModal{{ user.id }}" tabindex="-1">
                                         <div class="modal-dialog">
                                             <div class="modal-content">
-                                                <div class="modal-header bg-danger text-white">
-                                                    <h5 class="modal-title">Confirm Delete</h5>
+                                                <div class="modal-header">
+                                                    <h5 class="modal-title"><i class="fas fa-exclamation-triangle me-2 text-danger"></i> Confirm Delete</h5>
                                                     <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
                                                 </div>
                                                 <div class="modal-body">

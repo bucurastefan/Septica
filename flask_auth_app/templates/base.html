@@ -64,11 +64,13 @@
         </div>
     </nav>
 
-    <div class="container my-4">
+    <!-- Flash messages container (position fixed center) -->
+    <div class="flash-message-container">
+        <div class="flash-message-backdrop"></div>
         {% with messages = get_flashed_messages(with_categories=true) %}
         {% if messages %}
             {% for category, message in messages %}
-            <div class="alert alert-{{ 'success' if category == 'success' else 'danger' }} alert-dismissible fade show animate-fade-in" role="alert">
+            <div class="alert alert-{{ 'success' if category == 'success' else 'danger' }} alert-dismissible fade show animate-fade-in flash-message" role="alert">
                 <i class="fas fa-{{ 'check-circle' if category == 'success' else 'exclamation-circle' }} me-2"></i>
                 {{ message }}
                 <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
@@ -76,7 +78,9 @@
             {% endfor %}
         {% endif %}
         {% endwith %}
+    </div>
 
+    <div class="container my-4">
         <div class="page-container">
             {% block content %}{% endblock %}
         </div>
@@ -92,6 +96,38 @@
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.2.3/dist/js/bootstrap.bundle.min.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/js/all.min.js"></script>
     <script src="{{ url_for('static', filename='js/main.js') }}"></script>
+    
+    <!-- Auto-dismiss flash messages after 4 seconds -->
+    <script>
+        document.addEventListener('DOMContentLoaded', function() {
+            // Get all flash messages
+            const flashMessages = document.querySelectorAll('.flash-message');
+            
+            // Set timer to auto-dismiss each message after 4 seconds
+            flashMessages.forEach(function(message) {
+                setTimeout(function() {
+                    // First add the hide class for smooth fade-out animation
+                    message.classList.remove('show');
+                    message.classList.add('hide');
+                    
+                    // Then remove the element after animation completes
+                    setTimeout(function() {
+                        message.remove();
+                        
+                        // Check if all messages are gone to remove backdrop
+                        if (document.querySelectorAll('.flash-message').length === 0) {
+                            const backdrop = document.querySelector('.flash-message-backdrop');
+                            if (backdrop) {
+                                backdrop.style.opacity = '0';
+                                setTimeout(() => backdrop.style.display = 'none', 300);
+                            }
+                        }
+                    }, 600); // Match the fade-out-scale animation duration
+                }, 4000); // 4 seconds before starting fade-out
+            });
+        });
+    </script>
+    
     {% block extra_scripts %}{% endblock %}
 </body>
 </html>

@@ -63,6 +63,46 @@ class Lobby(db.Model):
     @property
     def player_count(self):
         return len(self.players)
+    
+    @property
+    def team1_players(self):
+        return [player for player in self.players if player.team == 1]
+    
+    @property
+    def team2_players(self):
+        return [player for player in self.players if player.team == 2]
+    
+    @property
+    def unassigned_players(self):
+        return [player for player in self.players if player.team == 0]
+    
+    @property
+    def is_full(self):
+        return self.player_count >= 4
+    
+    def assign_team(self, user_id):
+        player = LobbyPlayer.query.filter_by(lobby_id=self.id, user_id=user_id).first()
+        if not player:
+            return False
+        
+        # If player already has a team, do nothing
+        if player.team != 0:
+            return True
+        
+        # Count players in each team
+        team1_count = len(self.team1_players)
+        team2_count = len(self.team2_players)
+        
+        # Assign to team with fewer players
+        if team1_count <= team2_count and team1_count < 2:
+            player.team = 1
+        elif team2_count < 2:
+            player.team = 2
+        else:
+            # Both teams are full
+            return False
+        
+        return True
 
 # Define LobbyPlayer model (association table with additional data)
 class LobbyPlayer(db.Model):
@@ -70,13 +110,14 @@ class LobbyPlayer(db.Model):
     lobby_id = db.Column(db.Integer, db.ForeignKey('lobby.id'), nullable=False)
     user_id = db.Column(db.Integer, db.ForeignKey('user.id'), nullable=False)
     joined_at = db.Column(db.DateTime, default=datetime.utcnow)
+    team = db.Column(db.Integer, default=0)  # 0 = unassigned, 1 = team 1, 2 = team 2
     
     # Relationships
     lobby = db.relationship('Lobby', back_populates='players')
     user = db.relationship('User', back_populates='lobby_players')
     
     def __repr__(self):
-        return f'<LobbyPlayer {self.user.username} in {self.lobby.code}>'
+        return f'<LobbyPlayer {self.user.username} in {self.lobby.code}, Team {self.team}>'
 
 # Function to generate a unique lobby code
 def generate_lobby_code():
@@ -144,6 +185,20 @@ def add_name_column():
     except Exception as e:
         logger.error(f"Error adding name column: {e}")
 
+# Function to add team column to lobbyplayer table if it doesn't exist
+def add_team_column():
+    try:
+        if os.path.exists(db_path) and not column_exists('lobby_player', 'team'):
+            logger.info("Adding team column to lobby_player table")
+            conn = sqlite3.connect(db_path)
+            cursor = conn.cursor()
+            cursor.execute("ALTER TABLE lobby_player ADD COLUMN team INTEGER DEFAULT 0")
+            conn.commit()
+            conn.close()
+            logger.info("team column added successfully")
+    except Exception as e:
+        logger.error(f"Error adding team column: {e}")
+
 # Create tables and admin user if it doesn't exist
 with app.app_context():
     # First make sure the is_admin column exists
@@ -154,6 +209,9 @@ with app.app_context():
     
     # Then make sure the name column exists in lobby table
     add_name_column()
+    
+    # Then make sure the team column exists in lobby_player table
+    add_team_column()
     
     # Then create tables if they don't exist
     db.create_all()
@@ -537,7 +595,8 @@ def create_lobby():
         # Add the creator as a player
         lobby_player = LobbyPlayer(
             lobby_id=new_lobby.id,
-            user_id=user.id
+            user_id=user.id,
+            team=1  # Creator starts as Team 1
         )
         db.session.add(lobby_player)
         db.session.commit()
@@ -553,7 +612,7 @@ def create_lobby():
             'created_at': new_lobby.created_at.strftime('%Y-%m-%d %H:%M:%S')
         }, room='admin_room')
         
-        flash(f'Lobby created successfully! Your lobby code is: {lobby_code}', 'success')
+        flash(f'Lobby created successfully! Your lobby code is: {lobby_code}. You\'ve been automatically assigned to Team 1. Invite 3 more friends to play!', 'success')
         return redirect(url_for('lobby_detail', lobby_code=lobby_code))
     except Exception as e:
         logger.error(f"Error creating lobby: {e}")
@@ -583,6 +642,11 @@ def join_lobby():
             flash('Invalid lobby code or lobby no longer active!', 'error')
             return redirect(url_for('lobbies'))
         
+        # Check if lobby is full (max 4 players)
+        if lobby.is_full:
+            flash('This lobby is full (maximum 4 players)!', 'error')
+            return redirect(url_for('lobbies'))
+        
         # Check if user is already in this lobby
         existing_player = LobbyPlayer.query.filter_by(lobby_id=lobby.id, user_id=user.id).first()
         if existing_player:
@@ -598,9 +662,14 @@ def join_lobby():
         # Add user to lobby
         lobby_player = LobbyPlayer(
             lobby_id=lobby.id,
-            user_id=user.id
+            user_id=user.id,
+            team=0  # Start unassigned
         )
         db.session.add(lobby_player)
+        db.session.commit()
+        
+        # Try to auto-assign to a team if possible
+        lobby.assign_team(user.id)
         db.session.commit()
         
         # Current timestamp for both regular and admin events
@@ -610,7 +679,8 @@ def join_lobby():
         socketio.emit('player_joined', {
             'username': username,
             'user_id': user.id,
-            'joined_at': joined_at
+            'joined_at': joined_at,
+            'team': lobby_player.team
         }, room=lobby_code)
         
         # Emit event to admin room for real-time updates
@@ -798,12 +868,85 @@ def start_game(lobby_code):
             flash('Only the lobby owner can start the game!', 'error')
             return redirect(url_for('lobby_detail', lobby_code=lobby_code))
         
+        # Check if there are exactly 4 players
+        if lobby.player_count != 4:
+            flash('You need exactly 4 players to start the game!', 'error')
+            return redirect(url_for('lobby_detail', lobby_code=lobby_code))
+        
+        # Check if all players are assigned to teams
+        if len(lobby.unassigned_players) > 0:
+            flash('All players must be assigned to a team before starting!', 'error')
+            return redirect(url_for('lobby_detail', lobby_code=lobby_code))
+        
+        # Check if teams are balanced (2 players per team)
+        if len(lobby.team1_players) != 2 or len(lobby.team2_players) != 2:
+            flash('Each team must have exactly 2 players!', 'error')
+            return redirect(url_for('lobby_detail', lobby_code=lobby_code))
+        
         # Here you would start the game logic - for now just redirect back with a message
-        flash('Game started! (This is a placeholder - implement actual game logic)', 'success')
+        flash('Game started! Teams are ready to play.', 'success')
         return redirect(url_for('lobby_detail', lobby_code=lobby_code))
     except Exception as e:
         logger.error(f"Error starting game: {e}")
         flash('An error occurred while starting game. Please try again.', 'error')
+        return redirect(url_for('lobby_detail', lobby_code=lobby_code))
+
+@app.route('/lobby/<lobby_code>/change_team', methods=['POST'])
+def change_team(lobby_code):
+    """Change a player's team in the lobby"""
+    if 'username' not in session:
+        flash('Please login first!', 'error')
+        return redirect(url_for('login'))
+    
+    try:
+        username = session['username']
+        user = User.query.filter_by(username=username).first()
+        
+        # Get lobby
+        lobby = Lobby.query.filter_by(code=lobby_code, is_active=True).first()
+        if not lobby:
+            flash('Lobby not found or no longer active!', 'error')
+            return redirect(url_for('lobbies'))
+        
+        # Get player
+        lobby_player = LobbyPlayer.query.filter_by(lobby_id=lobby.id, user_id=user.id).first()
+        if not lobby_player:
+            flash('You are not a member of this lobby!', 'error')
+            return redirect(url_for('lobbies'))
+        
+        # Get desired team from form
+        new_team = int(request.form.get('team', 0))
+        
+        # Validate team choice (must be 1 or 2)
+        if new_team not in [1, 2]:
+            flash('Invalid team selection!', 'error')
+            return redirect(url_for('lobby_detail', lobby_code=lobby_code))
+        
+        # Check if the team is already full (max 2 players per team)
+        team_players = lobby.team1_players if new_team == 1 else lobby.team2_players
+        if len(team_players) >= 2 and lobby_player.team != new_team:
+            flash(f'Team {new_team} is already full!', 'error')
+            return redirect(url_for('lobby_detail', lobby_code=lobby_code))
+        
+        # Update team
+        old_team = lobby_player.team
+        lobby_player.team = new_team
+        db.session.commit()
+        
+        # Emit event to room
+        socketio.emit('player_team_changed', {
+            'username': username,
+            'user_id': user.id,
+            'old_team': old_team,
+            'new_team': new_team
+        }, room=lobby_code)
+        
+        flash(f'You joined Team {new_team}!', 'success')
+        return redirect(url_for('lobby_detail', lobby_code=lobby_code))
+    except Exception as e:
+        logger.error(f"Error changing team: {e}")
+        db.session.rollback()
+        flash('An error occurred while changing team. Please try again.', 'error')
         return redirect(url_for('lobby_detail', lobby_code=lobby_code))
 
 # Helper function to check if user is already in an active lobby

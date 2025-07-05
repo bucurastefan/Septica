@@ -596,7 +596,7 @@ def create_lobby():
         lobby_player = LobbyPlayer(
             lobby_id=new_lobby.id,
             user_id=user.id,
-            team=1  # Creator starts as Team 1
+            team=0  # Creator starts as unassigned
         )
         db.session.add(lobby_player)
         db.session.commit()
@@ -612,7 +612,7 @@ def create_lobby():
             'created_at': new_lobby.created_at.strftime('%Y-%m-%d %H:%M:%S')
         }, room='admin_room')
         
-        flash(f'Lobby created successfully! Your lobby code is: {lobby_code}. You\'ve been automatically assigned to Team 1. Invite 3 more friends to play!', 'success')
+        flash(f'Lobby created successfully! Your lobby code is: {lobby_code}. You need to select a team to play. Invite 3 more friends to join!', 'success')
         return redirect(url_for('lobby_detail', lobby_code=lobby_code))
     except Exception as e:
         logger.error(f"Error creating lobby: {e}")
@@ -666,10 +666,6 @@ def join_lobby():
             team=0  # Start unassigned
         )
         db.session.add(lobby_player)
-        db.session.commit()
-        
-        # Try to auto-assign to a team if possible
-        lobby.assign_team(user.id)
         db.session.commit()
         
         # Current timestamp for both regular and admin events
@@ -917,16 +913,24 @@ def change_team(lobby_code):
         # Get desired team from form
         new_team = int(request.form.get('team', 0))
         
-        # Validate team choice (must be 1 or 2)
-        if new_team not in [1, 2]:
+        # Validate team choice (must be 0, 1, or 2)
+        if new_team not in [0, 1, 2]:
             flash('Invalid team selection!', 'error')
             return redirect(url_for('lobby_detail', lobby_code=lobby_code))
         
-        # Check if the team is already full (max 2 players per team)
-        team_players = lobby.team1_players if new_team == 1 else lobby.team2_players
-        if len(team_players) >= 2 and lobby_player.team != new_team:
-            flash(f'Team {new_team} is already full!', 'error')
+        old_team = lobby_player.team
+        
+        # Check if the player is trying to go directly from one team to another
+        if old_team != 0 and new_team != 0:
+            flash('You must first leave your current team before joining a new one.', 'error')
             return redirect(url_for('lobby_detail', lobby_code=lobby_code))
+            
+        # If joining a team, check if it's full
+        if new_team in [1, 2]:
+            team_players = lobby.team1_players if new_team == 1 else lobby.team2_players
+            if len(team_players) >= 2:
+                flash(f'Team {new_team} is already full!', 'error')
+                return redirect(url_for('lobby_detail', lobby_code=lobby_code))
         
         # Update team
         old_team = lobby_player.team
@@ -941,7 +945,10 @@ def change_team(lobby_code):
             'new_team': new_team
         }, room=lobby_code)
         
-        flash(f'You joined Team {new_team}!', 'success')
+        if new_team == 0:
+            flash('You left your team and are now unassigned.', 'success')
+        else:
+            flash(f'You joined Team {new_team}!', 'success')
         return redirect(url_for('lobby_detail', lobby_code=lobby_code))
     except Exception as e:
         logger.error(f"Error changing team: {e}")

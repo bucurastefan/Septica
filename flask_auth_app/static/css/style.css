@@ -151,6 +151,12 @@ body {
     border: none;
 }
 
+.btn-purple {
+    background: linear-gradient(90deg, #3a0070, #6a0dad);
+    border: none;
+    color: white;
+}
+
 .btn:hover {
     transform: translateY(-3px);
     box-shadow: 0 8px 15px rgba(0, 0, 0, 0.2);

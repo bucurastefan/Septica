@@ -23,7 +23,7 @@
                             </span>
                         {% endif %}
                     </h4>
-                    <button class="btn btn-outline-primary btn-sm" onclick="copyLobbyCode()">
+                    <button class="btn btn-purple btn-sm" onclick="copyLobbyCode()">
                         <i class="fas fa-clipboard me-1"></i> Copy Code
                     </button>
                 </div>
@@ -31,8 +31,8 @@
                     <div class="alert alert-info mb-4">
                         <div class="d-flex align-items-center">
                             <i class="fas fa-info-circle me-3 fa-2x"></i>
-                            <div>
-                                <strong>Lobby Code:</strong> <span id="lobbyCode" class="fw-bold">{{ lobby.code }}</span>
+                            <div class="flex-grow-1">
+                                <strong>Lobby Code:</strong> <span id="lobbyCode" class="fw-bold fs-5">{{ lobby.code }}</span>
                                 <p class="mb-0 mt-2">Share this code with friends so they can join your lobby!</p>
                             </div>
                         </div>
@@ -741,7 +741,30 @@ function copyLobbyCode() {
     const lobbyCode = document.getElementById('lobbyCode').textContent;
     navigator.clipboard.writeText(lobbyCode)
         .then(() => {
-            alert('Lobby code copied to clipboard!');
+            // Create a temporary toast notification
+            const toast = document.createElement('div');
+            toast.className = 'position-fixed top-0 start-50 translate-middle-x p-3';
+            toast.style.zIndex = '9999';
+            toast.innerHTML = `
+                <div class="toast show align-items-center text-white bg-success border-0" role="alert" aria-live="assertive" aria-atomic="true">
+                    <div class="d-flex">
+                        <div class="toast-body">
+                            <i class="fas fa-check-circle me-2"></i> Lobby code copied to clipboard!
+                        </div>
+                        <button type="button" class="btn-close btn-close-white me-2 m-auto" data-bs-dismiss="toast" aria-label="Close"></button>
+                    </div>
+                </div>
+            `;
+            
+            document.body.appendChild(toast);
+            
+            // Remove the toast after 3 seconds
+            setTimeout(() => {
+                toast.remove();
+            }, 3000);
+            
+            // Also log to activity log
+            logActivity('Copied lobby code to clipboard');
         })
         .catch(err => {
             console.error('Could not copy text: ', err);

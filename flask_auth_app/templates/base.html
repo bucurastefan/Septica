@@ -34,6 +34,12 @@
             </button>
             <div class="collapse navbar-collapse" id="navbarNav">
                 <ul class="navbar-nav ms-auto">
+                    <li class="nav-item me-3">
+                        <button id="theme-toggle" class="btn btn-sm theme-toggle-btn" aria-label="Toggle dark mode">
+                            <i class="fas fa-moon"></i>
+                            <i class="fas fa-sun"></i>
+                        </button>
+                    </li>
                     {% if 'username' in session %}
                         {% if session.get('is_admin', False) %}
                         <li class="nav-item">

@@ -1,6 +1,9 @@
 :root {
+    /* Light theme (default) */
     --primary-color: #4a00e0;
+    --primary-color-rgb: 74, 0, 224;
     --secondary-color: #8e2de2;
+    --secondary-color-rgb: 142, 45, 226;
     --accent-color: #ff6b6b;
     --light-accent: #ffb347;
     --success-color: #02c39a;
@@ -10,6 +13,12 @@
     --card-color: #ffffff;
     --text-color: #333333;
     --text-light: #6c757d;
+    --body-bg: linear-gradient(135deg, #f5f7fa 0%, #c3cfe2 100%);
+    --navbar-bg: linear-gradient(90deg, var(--primary-color), var(--secondary-color));
+    --footer-bg: rgba(255, 255, 255, 0.9);
+    --footer-text: #6c757d;
+    --input-bg: #fff;
+    --input-border: #ced4da;
     
     /* Game-specific colors */
     --hearts: #e74c3c;
@@ -20,14 +29,40 @@
     --card-shadow: rgba(0, 0, 0, 0.1);
 }
 
+/* Dark theme */
+[data-theme="dark"] {
+    --primary-color: #9065ff;
+    --primary-color-rgb: 144, 101, 255;
+    --secondary-color: #bb6aff;
+    --secondary-color-rgb: 187, 106, 255;
+    --light-bg: #121220;
+    --card-color: #232339;
+    --text-color: #f0f0f0;
+    --text-light: #b8b8c8;
+    --body-bg: linear-gradient(135deg, #0f0c29 0%, #302b63 50%, #24243e 100%);
+    --navbar-bg: linear-gradient(90deg, #3a0070, #6a0dad);
+    --footer-bg: rgba(18, 18, 30, 0.9);
+    --footer-text: #b8b8c8;
+    --input-bg: #191927;
+    --input-border: #3d3d56;
+    --card-border: #3d3d56;
+    --card-shadow: rgba(0, 0, 0, 0.4);
+    --success-color: #1de9b6;
+    --danger-color: #ff5252;
+    --warning-color: #ffca28;
+    --accent-color: #ff7b7b;
+    --light-accent: #ffc55c;
+}
+
 body {
-    background: linear-gradient(135deg, #f5f7fa 0%, #c3cfe2 100%);
+    background: var(--body-bg);
     font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
     color: var(--text-color);
+    transition: background 0.3s ease;
 }
 
 .navbar {
-    background: linear-gradient(90deg, var(--primary-color), var(--secondary-color)) !important;
+    background: var(--navbar-bg) !important;
     box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
 }
 
@@ -74,12 +109,12 @@ body {
 }
 
 .card-suit-logo .heart-black {
-    color: #1a1a1a;
+    color: var(--text-color);
     --i: 1;
 }
 
 .card-suit-logo .club-black {
-    color: #1a1a1a;
+    color: var(--text-color);
     --i: 2;
 }
 
@@ -106,6 +141,15 @@ body {
     transform: translateY(-2px);
 }
 
+[data-theme="dark"] .nav-link.active {
+    color: var(--light-accent) !important;
+    text-shadow: 0 0 5px rgba(255, 197, 92, 0.5);
+}
+
+[data-theme="dark"] .navbar-dark .navbar-nav .nav-link {
+    color: rgba(255, 255, 255, 0.9);
+}
+
 .card {
     border: none;
     border-radius: 15px;
@@ -125,6 +169,30 @@ body {
     background: linear-gradient(90deg, var(--primary-color), var(--secondary-color));
     color: white;
     font-weight: 600;
+}
+
+[data-theme="dark"] .bg-primary {
+    background-color: #3949ab !important;
+}
+
+[data-theme="dark"] .bg-danger {
+    background-color: #d32f2f !important;
+}
+
+[data-theme="dark"] .bg-secondary {
+    background-color: #455a64 !important;
+}
+
+[data-theme="dark"] .bg-info {
+    background-color: #0288d1 !important;
+}
+
+[data-theme="dark"] .bg-warning {
+    background-color: #f57c00 !important;
+}
+
+[data-theme="dark"] .bg-success {
+    background-color: #00897b !important;
 }
 
 .btn {
@@ -157,6 +225,36 @@ body {
     color: white;
 }
 
+[data-theme="dark"] .btn-outline-primary {
+    color: var(--primary-color);
+    border-color: var(--primary-color);
+}
+
+[data-theme="dark"] .btn-outline-primary:hover {
+    background-color: var(--primary-color);
+    color: #fff;
+}
+
+[data-theme="dark"] .btn-outline-danger {
+    color: var(--danger-color);
+    border-color: var(--danger-color);
+}
+
+[data-theme="dark"] .btn-outline-danger:hover {
+    background-color: var(--danger-color);
+    color: #fff;
+}
+
+[data-theme="dark"] .btn-outline-secondary {
+    color: #adb5bd;
+    border-color: #adb5bd;
+}
+
+[data-theme="dark"] .btn-outline-secondary:hover {
+    background-color: #adb5bd;
+    color: #232339;
+}
+
 .btn:hover {
     transform: translateY(-3px);
     box-shadow: 0 8px 15px rgba(0, 0, 0, 0.2);
@@ -165,7 +263,11 @@ body {
 .alert {
     border-radius: 12px;
     border: none;
-    box-shadow: 0 5px 15px rgba(0, 0, 0, 0.08);
+    box-shadow: 0 5px 15px var(--card-shadow);
+}
+
+[data-theme="dark"] .alert {
+    background-color: var(--card-color);
 }
 
 /* Custom colors for alerts */
@@ -181,13 +283,45 @@ body {
     border-left: 4px solid var(--danger-color);
 }
 
+.alert-warning {
+    background: linear-gradient(90deg, rgba(249, 199, 79, 0.15), rgba(255, 183, 77, 0.15));
+    color: var(--warning-color);
+    border-left: 4px solid var(--warning-color);
+}
+
+.alert-info {
+    background: linear-gradient(90deg, rgba(72, 149, 239, 0.15), rgba(108, 167, 236, 0.15));
+    color: #4895ef;
+    border-left: 4px solid #4895ef;
+}
+
+[data-theme="dark"] .alert-success {
+    background: rgba(29, 233, 182, 0.1);
+}
+
+[data-theme="dark"] .alert-danger {
+    background: rgba(255, 82, 82, 0.1);
+}
+
+[data-theme="dark"] .alert-warning {
+    background: rgba(255, 202, 40, 0.1);
+}
+
+[data-theme="dark"] .alert-info {
+    background: rgba(72, 149, 239, 0.1);
+    color: #62b5ff;
+    border-left-color: #62b5ff;
+}
+
 /* Form styling */
 .form-control {
     border-radius: 8px;
     padding: 12px 15px;
-    border: 1px solid #e2e8f0;
+    border: 1px solid var(--input-border);
     box-shadow: 0 2px 5px rgba(0, 0, 0, 0.05);
     transition: all 0.3s;
+    background-color: var(--input-bg);
+    color: var(--text-color);
 }
 
 .form-control:focus {
@@ -199,9 +333,12 @@ body {
 table.table {
     border-radius: 12px;
     overflow: hidden;
-    box-shadow: 0 5px 15px rgba(0, 0, 0, 0.08);
+    box-shadow: 0 5px 15px var(--card-shadow);
     border-collapse: separate;
     border-spacing: 0;
+    background-color: var(--card-color);
+    color: var(--text-color);
+    transition: all 0.3s ease;
 }
 
 thead {
@@ -217,7 +354,7 @@ th {
 
 td {
     padding: 12px 15px !important;
-    border-color: #e2e8f0 !important;
+    border-color: var(--card-border) !important;
 }
 
 tbody tr {
@@ -225,15 +362,16 @@ tbody tr {
 }
 
 tbody tr:hover {
-    background-color: rgba(74, 0, 224, 0.05);
+    background-color: rgba(var(--primary-color-rgb), 0.1);
 }
 
 /* Footer styling */
 .footer {
-    background: linear-gradient(90deg, var(--primary-color), var(--secondary-color)) !important;
+    background: var(--navbar-bg) !important;
     color: white !important;
     padding: 20px 0 !important;
     font-weight: 500;
+    transition: background 0.3s ease;
 }
 
 .footer .text-muted {
@@ -243,7 +381,12 @@ tbody tr:hover {
 /* Game-specific elements */
 .lobby-card {
     border-left: 5px solid var(--primary-color);
-    background: linear-gradient(145deg, #ffffff, #f0f2f5);
+    background: var(--card-color);
+    transition: background 0.3s ease, border-color 0.3s ease;
+}
+
+[data-theme="dark"] .lobby-card {
+    border-left-color: #9065ff;
 }
 
 .player-badge {
@@ -258,12 +401,19 @@ tbody tr:hover {
 
 /* Page containers */
 .page-container {
-    background-color: rgba(255, 255, 255, 0.8);
+    background-color: var(--card-color);
     border-radius: 15px;
     padding: 25px;
-    box-shadow: 0 8px 30px rgba(0, 0, 0, 0.1);
+    box-shadow: 0 8px 30px var(--card-shadow);
     backdrop-filter: blur(10px);
     margin-bottom: 30px;
+    transition: background-color 0.3s ease, box-shadow 0.3s ease;
+    border: 1px solid transparent;
+}
+
+[data-theme="dark"] .page-container {
+    border-color: var(--card-border);
+    background-color: rgba(35, 35, 57, 0.85);
 }
 
 .page-title {
@@ -294,6 +444,25 @@ tbody tr:hover {
 .btn-outline-primary:hover {
     background-color: var(--primary-color);
     color: white;
+}
+
+/* List group styling for dark mode */
+[data-theme="dark"] .list-group-item {
+    background-color: var(--card-color);
+    color: var(--text-color);
+    border-color: var(--card-border);
+}
+
+[data-theme="dark"] .list-group-item.text-muted {
+    color: var(--text-light) !important;
+}
+
+[data-theme="dark"] .text-muted {
+    color: var(--text-light) !important;
+}
+
+[data-theme="dark"] .text-dark {
+    color: #f0f0f0 !important;
 }
 
 /* Badge styling */
@@ -470,10 +639,10 @@ tbody tr:hover {
     border-radius: 15px;
     overflow: hidden;
     padding: 20px;
-    background: linear-gradient(135deg, rgba(255, 255, 255, 0.9) 0%, rgba(240, 242, 245, 0.9) 100%);
-    box-shadow: 0 5px 15px rgba(0, 0, 0, 0.08);
+    background: var(--card-color);
+    box-shadow: 0 5px 15px var(--card-shadow);
     backdrop-filter: blur(10px);
-    border: 1px solid rgba(255, 255, 255, 0.3);
+    border: 1px solid var(--card-border);
     transition: all 0.3s ease;
 }
 
@@ -512,7 +681,7 @@ tbody tr:hover {
     position: relative;
     width: 100px;
     height: 150px;
-    background-color: white;
+    background-color: var(--card-color);
     border-radius: 8px;
     box-shadow: 0 4px 8px var(--card-shadow);
     transition: all 0.3s ease;
@@ -586,9 +755,10 @@ tbody tr:hover {
     margin-bottom: 30px;
     padding: 20px;
     border-radius: 15px;
-    background: linear-gradient(135deg, rgba(255, 255, 255, 0.7) 0%, rgba(240, 242, 245, 0.7) 100%);
+    background: var(--card-color);
     backdrop-filter: blur(5px);
-    border: 1px solid rgba(255, 255, 255, 0.3);
+    border: 1px solid var(--card-border);
+    transition: background 0.3s ease;
 }
 
 .player-hand h5 {
@@ -700,6 +870,56 @@ tbody tr:hover {
     100% { transform: scale(1); box-shadow: 0 0 0 0 rgba(255, 255, 255, 0); }
 }
 
+/* Theme toggle button */
+.theme-toggle-btn {
+    background-color: transparent;
+    color: white;
+    border: 2px solid rgba(255, 255, 255, 0.2);
+    width: 40px;
+    height: 40px;
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 1.1rem;
+    transition: all 0.3s ease;
+    padding: 0;
+    margin-right: 10px;
+}
+
+.theme-toggle-btn:hover {
+    background-color: rgba(255, 255, 255, 0.15);
+    transform: translateY(-3px);
+    box-shadow: 0 5px 15px rgba(0, 0, 0, 0.2);
+}
+
+[data-theme="dark"] .theme-toggle-btn {
+    background-color: rgba(255, 255, 255, 0.1);
+    border-color: rgba(255, 255, 255, 0.3);
+}
+
+[data-theme="dark"] .theme-toggle-btn:hover {
+    background-color: rgba(255, 255, 255, 0.2);
+}
+
+[data-theme="dark"] .theme-toggle-btn .fa-moon {
+    display: none;
+}
+
+[data-theme="dark"] .theme-toggle-btn .fa-sun {
+    display: inline-block;
+    color: #ffca28;
+}
+
+.theme-toggle-btn .fa-sun {
+    display: none;
+}
+
+.theme-toggle-btn .fa-moon {
+    display: inline-block;
+    color: white;
+}
+
 /* Flash message styling */
 .flash-message-container {
     position: fixed;
@@ -734,13 +954,33 @@ tbody tr:hover {
 
 .flash-message {
     margin-bottom: 10px;
-    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.25);
+    box-shadow: 0 4px 12px var(--card-shadow);
     border-left: 4px solid;
     opacity: 1;
     transition: all 0.5s cubic-bezier(0.175, 0.885, 0.32, 1.275);
     width: 100%;
     text-align: center;
-    background-color: rgba(255, 255, 255, 0.95);
+    background-color: var(--card-color);
+    color: var(--text-color);
+}
+
+[data-theme="dark"] .flash-message {
+    box-shadow: 0 4px 16px rgba(0, 0, 0, 0.5);
+}
+
+[data-theme="dark"] .flash-message.alert-success {
+    border-left-color: var(--success-color);
+    color: var(--success-color);
+}
+
+[data-theme="dark"] .flash-message.alert-danger {
+    border-left-color: var(--danger-color);
+    color: var(--danger-color);
+}
+
+[data-theme="dark"] .flash-message.alert-warning {
+    border-left-color: var(--warning-color);
+    color: var(--warning-color);
 }
 
 .flash-message:hover {

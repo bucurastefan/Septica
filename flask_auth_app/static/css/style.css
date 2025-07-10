@@ -54,11 +54,16 @@
     --light-accent: #ffc55c;
 }
 
+/* Prevent flash of light theme */
+html {
+    background: var(--body-bg);
+}
+
 body {
     background: var(--body-bg);
     font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
     color: var(--text-color);
-    transition: background 0.3s ease;
+    transition: background 0.3s ease, color 0.3s ease;
 }
 
 .navbar {
@@ -193,6 +198,21 @@ body {
 
 [data-theme="dark"] .bg-success {
     background-color: #00897b !important;
+}
+
+/* Fix dark mode modals */
+[data-theme="dark"] .modal-content {
+    background-color: var(--card-color);
+    border-color: var(--card-border);
+}
+
+[data-theme="dark"] .modal-header .btn-close {
+    filter: invert(1) grayscale(100%) brightness(200%);
+}
+
+/* Fix owner badge in dark mode */
+[data-theme="dark"] .badge.bg-warning.text-dark {
+    color: #121220 !important;
 }
 
 .btn {
@@ -918,6 +938,60 @@ tbody tr:hover {
 .theme-toggle-btn .fa-moon {
     display: inline-block;
     color: white;
+}
+
+/* Admin dashboard specific styles */
+[data-theme="dark"] .card-header.bg-light {
+    background-color: #2d2d42 !important;
+    color: #f0f0f0 !important;
+}
+
+[data-theme="dark"] .card-body {
+    color: var(--text-color);
+}
+
+[data-theme="dark"] .modal-body {
+    background-color: var(--card-color);
+    color: var(--text-color);
+}
+
+[data-theme="dark"] .modal-header {
+    border-bottom-color: var(--card-border);
+}
+
+[data-theme="dark"] .modal-footer {
+    border-top-color: var(--card-border);
+    background-color: var(--card-color);
+}
+
+[data-theme="dark"] .bg-light {
+    background-color: #2d2d42 !important;
+}
+
+[data-theme="dark"] .text-dark {
+    color: #f0f0f0 !important;
+}
+
+[data-theme="dark"] .table {
+    color: var(--text-color);
+}
+
+[data-theme="dark"] .table-striped > tbody > tr:nth-of-type(odd) {
+    background-color: rgba(255, 255, 255, 0.05);
+}
+
+[data-theme="dark"] .table-hover > tbody > tr:hover {
+    background-color: rgba(144, 101, 255, 0.1);
+}
+
+[data-theme="dark"] .form-control:disabled, 
+[data-theme="dark"] .form-control:read-only {
+    background-color: #1e1e2d;
+    color: var(--text-light);
+}
+
+[data-theme="dark"] .form-text {
+    color: var(--text-light) !important;
 }
 
 /* Flash message styling */

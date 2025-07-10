@@ -8,16 +8,8 @@ document.addEventListener('DOMContentLoaded', function() {
     const themeToggle = document.getElementById('theme-toggle');
     const prefersDarkScheme = window.matchMedia('(prefers-color-scheme: dark)');
     
-    // Check for saved theme preference or use OS preference
-    const currentTheme = localStorage.getItem('theme') || 
-                        (prefersDarkScheme.matches ? 'dark' : 'light');
-    
-    // Set initial theme
-    if (currentTheme === 'dark') {
-        document.documentElement.setAttribute('data-theme', 'dark');
-    }
-    
-    // Handle theme toggle click
+    // Handle theme toggle click - we don't need to set the initial theme here anymore
+    // since it's already set by the script in the <head> section
     if (themeToggle) {
         themeToggle.addEventListener('click', function() {
             let theme = 'light';

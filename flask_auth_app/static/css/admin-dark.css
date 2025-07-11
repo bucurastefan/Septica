@@ -257,12 +257,6 @@
 
 [data-theme="dark"] #activity-log .activity-item .alert {
     border-left: 3px solid;
-    color: #f0f0f0 !important;
-}
-
-[data-theme="dark"] #activity-log .activity-item small,
-[data-theme="dark"] #activity-log .activity-item strong {
-    color: #f0f0f0 !important;
 }
 
 [data-theme="dark"] #activity-log .activity-item .alert-success {

@@ -79,28 +79,41 @@ document.addEventListener('DOMContentLoaded', function() {
         const lobbyCode = document.getElementById('lobbyCode');
         if (lobbyCode) {
             navigator.clipboard.writeText(lobbyCode.textContent).then(() => {
-                // Create and show toast notification
-                const toast = document.createElement('div');
-                toast.className = 'position-fixed bottom-0 end-0 p-3';
-                toast.style.zIndex = '11';
-                toast.innerHTML = `
-                    <div class="toast show" role="alert" aria-live="assertive" aria-atomic="true">
-                        <div class="toast-header">
-                            <i class="fas fa-check-circle text-success me-2"></i>
-                            <strong class="me-auto">Success</strong>
-                            <button type="button" class="btn-close" data-bs-dismiss="toast" aria-label="Close"></button>
-                        </div>
-                        <div class="toast-body">
-                            Lobby code copied to clipboard!
-                        </div>
-                    </div>
-                `;
-                document.body.appendChild(toast);
-                
-                // Auto remove after 3 seconds
-                setTimeout(() => {
-                    toast.remove();
-                }, 3000);
+                // Create a flash message that matches the application style
+                const flashContainer = document.querySelector('.flash-message-container');
+                if (flashContainer) {
+                    const flashMessage = document.createElement('div');
+                    flashMessage.className = 'alert alert-success alert-dismissible fade show animate-fade-in flash-message';
+                    flashMessage.setAttribute('role', 'alert');
+                    flashMessage.innerHTML = `
+                        <i class="fas fa-check-circle me-2"></i>
+                        Lobby code copied to clipboard!
+                        <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+                    `;
+                    
+                    // Add the flash message to the container
+                    flashContainer.appendChild(flashMessage);
+                    
+                    // Auto dismiss after 3 seconds
+                    setTimeout(() => {
+                        flashMessage.classList.remove('show');
+                        flashMessage.classList.add('hide');
+                        
+                        // Remove from DOM after animation completes
+                        setTimeout(() => {
+                            flashMessage.remove();
+                            
+                            // Check if all messages are gone to remove backdrop
+                            if (document.querySelectorAll('.flash-message').length === 0) {
+                                const backdrop = document.querySelector('.flash-message-backdrop');
+                                if (backdrop) {
+                                    backdrop.style.opacity = '0';
+                                    setTimeout(() => backdrop.style.display = 'none', 300);
+                                }
+                            }
+                        }, 600); // Match the fade-out animation duration
+                    }, 3000);
+                }
             });
         }
     };

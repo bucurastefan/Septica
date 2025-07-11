@@ -64,11 +64,18 @@ body {
     font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
     color: var(--text-color);
     transition: background 0.3s ease, color 0.3s ease;
+    padding-top: 56px; /* Add padding to account for the fixed navbar */
 }
 
 .navbar {
     background: var(--navbar-bg) !important;
     box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+    z-index: 1030;
+}
+
+/* Fixed navbar spacing */
+.navbar-padding {
+    padding-top: 70px; /* Adjust based on navbar height */
 }
 
 .navbar-brand {
@@ -997,10 +1004,10 @@ tbody tr:hover {
 /* Flash message styling */
 .flash-message-container {
     position: fixed;
-    top: 80px; /* Position it below the navbar */
+    top: 90px; /* Position it below the fixed navbar */
     left: 50%;
     transform: translateX(-50%);
-    z-index: 9999;
+    z-index: 1029; /* Just below navbar z-index */
     max-width: 400px;
     width: 100%;
     display: flex;

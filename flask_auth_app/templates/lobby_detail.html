@@ -256,6 +256,17 @@ socket.on('connect', function() {
     updateTeamButtons();
 });
 
+// Listen for game started event
+socket.on('game_started', function(data) {
+    try {
+        logActivity('Game started! Redirecting to game page...');
+        // Redirect to the game page
+        window.location.href = data.redirect_url;
+    } catch (error) {
+        console.error('Error handling game_started event:', error);
+    }
+});
+
 // Listen for player join events
 socket.on('player_joined', function(data) {
     try {

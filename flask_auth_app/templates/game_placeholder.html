@@ -1,0 +1,110 @@
+{% extends "base.html" %}
+
+{% block title %}Game Started - Șeptică{% endblock %}
+
+{% block content %}
+<div class="container-fluid animate-fade-in">
+    <div class="row justify-content-center">
+        <div class="col-md-8">
+            <div class="card game-placeholder-card mt-5">
+                <div class="card-header">
+                    <div class="d-flex justify-content-between align-items-center">
+                        <div>
+                            <i class="fas fa-gamepad me-2"></i> Game Room - Lobby: {{ lobby.code }}
+                        </div>
+                        <div>
+                            <span class="badge bg-success me-2">
+                                <i class="fas fa-users me-1"></i> {{ lobby.player_count }} Players
+                            </span>
+                        </div>
+                    </div>
+                </div>
+                <div class="card-body text-center py-5">
+                    <h2 class="mb-4">Game Started - Placeholder</h2>
+                    <p class="lead">This screen will be replaced by the actual game in a future update.</p>
+                    <p>You are playing in {{ lobby.name }} with:</p>
+                    <div class="row justify-content-center mb-4">
+                        <div class="col-md-8">
+                            <div class="list-group">
+                                {% for player in lobby.players %}
+                                <div class="list-group-item d-flex justify-content-between align-items-center">
+                                    <span>{{ player.user.username }}</span>
+                                    <span class="badge {% if player.team == 1 %}bg-primary{% elif player.team == 2 %}bg-danger{% else %}bg-secondary{% endif %}">
+                                        Team {{ player.team }}
+                                    </span>
+                                </div>
+                                {% endfor %}
+                            </div>
+                        </div>
+                    </div>
+                    <form action="{{ url_for('leave_game', lobby_code=lobby.code) }}" method="POST">
+                        <button type="submit" class="btn btn-danger btn-lg">
+                            <i class="fas fa-sign-out-alt me-2"></i> Leave Game
+                        </button>
+                    </form>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_scripts %}
+<script src="https://cdn.socket.io/4.6.0/socket.io.min.js"></script>
+<script>
+    // Connect to SocketIO
+    document.addEventListener('DOMContentLoaded', function() {
+        const socket = io();
+        
+        // Join the lobby room
+        socket.emit('join_lobby_room', {
+            lobby_code: '{{ lobby.code }}'
+        });
+        
+        // Listen for player left game event
+        socket.on('player_left_game', function(data) {
+            console.log(`${data.username} has left the game`);
+            
+            // Update the player list
+            const playerItems = document.querySelectorAll('.list-group-item');
+            playerItems.forEach(item => {
+                if (item.textContent.includes(data.username)) {
+                    // Create and show notification
+                    const alertDiv = document.createElement('div');
+                    
+                    // Different message if this is the last player leaving
+                    if (data.is_last_player) {
+                        alertDiv.className = 'alert alert-danger alert-dismissible fade show mt-3';
+                        alertDiv.innerHTML = 
+                            `<strong>${data.username} has left the game!</strong> You are the last player remaining. The lobby will be deleted when you leave.
+                            <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>`;
+                    } else {
+                        alertDiv.className = 'alert alert-warning alert-dismissible fade show mt-3';
+                        alertDiv.innerHTML = 
+                            `<strong>${data.username} has left the game!</strong> There are now ${data.remaining_players} players remaining.
+                            <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>`;
+                    }
+                    
+                    const cardBody = document.querySelector('.card-body');
+                    cardBody.insertBefore(alertDiv, cardBody.firstChild);
+                    
+                    // Auto-dismiss after 5 seconds
+                    setTimeout(() => {
+                        alertDiv.classList.remove('show');
+                        setTimeout(() => alertDiv.remove(), 500);
+                    }, 5000);
+                    
+                    // Remove the player from the list
+                    item.remove();
+                    
+                    // Update player count badge
+                    const playerBadge = document.querySelector('.badge.bg-success');
+                    if (playerBadge) {
+                        playerBadge.innerHTML = `<i class="fas fa-users me-1"></i> ${data.remaining_players} Players`;
+                    }
+                }
+            });
+        });
+    });
+</script>
+{% endblock %}

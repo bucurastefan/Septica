@@ -52,6 +52,15 @@
                                         <span class="badge bg-secondary">Private</span>
                                     {% endif %}
                                 </dd>
+                                
+                                <dt class="col-sm-4">Game Status</dt>
+                                <dd class="col-sm-8" id="game-status">
+                                    {% if lobby.game_started %}
+                                        <span class="badge bg-danger">Game In Progress</span>
+                                    {% else %}
+                                        <span class="badge bg-info">Waiting for Game</span>
+                                    {% endif %}
+                                </dd>
                             </dl>
                         </div>
                     </div>
@@ -92,11 +101,12 @@
                                     <th>Email</th>
                                     <th>Joined At</th>
                                     <th>Role</th>
+                                    <th>Status</th>
                                 </tr>
                             </thead>
                             <tbody id="players-table-body">
                                 {% for player in lobby.players %}
-                                <tr id="player-row-{{ player.user.id }}" data-user-id="{{ player.user.id }}">
+                                <tr id="player-row-{{ player.user.id }}" data-user-id="{{ player.user.id }}" data-player-id="{{ player.user.id }}">
                                     <td>{{ player.user.username }}</td>
                                     <td>{{ player.user.email }}</td>
                                     <td>{{ player.joined_at.strftime('%Y-%m-%d %H:%M:%S') }}</td>
@@ -105,6 +115,13 @@
                                             <span class="badge bg-warning owner-badge">Owner</span>
                                         {% else %}
                                             <span class="badge bg-info">Player</span>
+                                        {% endif %}
+                                    </td>
+                                    <td class="status-cell">
+                                        {% if lobby.game_started %}
+                                            <span class="badge bg-success">In Game</span>
+                                        {% else %}
+                                            <span class="badge bg-secondary">In Lobby</span>
                                         {% endif %}
                                     </td>
                                 </tr>
@@ -219,6 +236,34 @@ document.addEventListener('DOMContentLoaded', function() {
             }, 1500);
         }
     });
+
+    // Handle player leaving the game
+    socket.on('admin_lobby_player_left_game', function(data) {
+        // Log the activity
+        let activityMessage = `<strong>${data.username}</strong> left the game (Team ${data.team})`;
+        
+        // Update player count
+        const playerCountElement = document.getElementById('player-count');
+        if (playerCountElement) {
+            playerCountElement.textContent = data.remaining_players;
+        }
+        
+        // Update the team player lists
+        updatePlayerLists();
+        
+        // Add to activity log
+        logActivity(activityMessage);
+        
+        // Update player row in the table
+        const playerRow = document.querySelector(`tr[data-player-id="${data.user_id}"]`);
+        if (playerRow) {
+            playerRow.classList.add('bg-danger', 'text-white');
+            const statusCell = playerRow.querySelector('.status-cell');
+            if (statusCell) {
+                statusCell.innerHTML = '<span class="badge bg-danger">Left Game</span>';
+            }
+        }
+    });
     
     // Also listen to general admin events for this lobby
     socket.on('admin_lobby_inactive', function(data) {
@@ -269,6 +314,42 @@ document.addEventListener('DOMContentLoaded', function() {
         // Reload the page
         window.location.reload();
     });
+    
+    // Function to update player lists via AJAX
+    function updatePlayerLists() {
+        fetch(window.location.href)
+            .then(response => response.text())
+            .then(html => {
+                const parser = new DOMParser();
+                const doc = parser.parseFromString(html, 'text/html');
+                
+                // Update player table
+                const newPlayerTable = doc.querySelector('.table-responsive');
+                const currentPlayerTable = document.querySelector('.table-responsive');
+                if (newPlayerTable && currentPlayerTable) {
+                    currentPlayerTable.innerHTML = newPlayerTable.innerHTML;
+                }
+                
+                // Update team information
+                const newTeamLists = doc.querySelectorAll('.team-list');
+                const currentTeamLists = document.querySelectorAll('.team-list');
+                if (newTeamLists.length > 0 && currentTeamLists.length > 0) {
+                    for (let i = 0; i < Math.min(newTeamLists.length, currentTeamLists.length); i++) {
+                        currentTeamLists[i].innerHTML = newTeamLists[i].innerHTML;
+                    }
+                }
+                
+                // Update game status if it exists
+                const newGameStatus = doc.querySelector('#game-status');
+                const currentGameStatus = document.querySelector('#game-status');
+                if (newGameStatus && currentGameStatus) {
+                    currentGameStatus.innerHTML = newGameStatus.innerHTML;
+                }
+            })
+            .catch(error => {
+                console.error('Error updating player lists:', error);
+            });
+    }
     
     // Log initial connection
     logActivity('Monitoring lobby activity...');

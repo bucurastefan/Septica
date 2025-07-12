@@ -157,9 +157,12 @@ document.addEventListener('DOMContentLoaded', function() {
         const currentCount = parseInt(lobbyCountElement.textContent) || 0;
         lobbyCountElement.textContent = Math.max(0, currentCount - 1);
         
+        const reasonText = data.reason ? ` - ${data.reason}` : '';
+        
         logActivity(`
             <div class="alert alert-danger mb-2">
-                <strong>Lobby Inactive:</strong> ${data.lobby_name} (${data.lobby_code}) is now inactive
+                <strong>Lobby Inactive:</strong> ${data.lobby_name} (${data.lobby_code}) is now inactive${reasonText}
+                ${data.time ? `<br><small>Time: ${data.time}</small>` : ''}
             </div>
         `);
     });
@@ -171,6 +174,27 @@ document.addEventListener('DOMContentLoaded', function() {
                 <strong>Owner Change:</strong> Lobby ${data.lobby_name} (${data.lobby_code})
                 <br>
                 <small>Previous owner: ${data.previous_owner} | New owner: ${data.new_owner}</small>
+            </div>
+        `);
+    });
+    
+    // Handle player leaving a game
+    socket.on('admin_player_left_game', function(data) {
+        let alertClass = 'alert-warning';
+        let messageTitle = 'Player Left Game:';
+        
+        // If this is the last player or it will be auto-deleted, show a more specific message
+        if (data.is_last_player || data.remaining_players === 0) {
+            alertClass = 'alert-danger';
+            messageTitle = 'Last Player Left Game:';
+        }
+        
+        logActivity(`
+            <div class="alert ${alertClass} mb-2">
+                <strong>${messageTitle}</strong> ${data.username} left game in lobby ${data.lobby_name} (${data.lobby_code})
+                <br>
+                <small>Remaining players: ${data.remaining_players} | Team: ${data.team} | Time: ${data.time}</small>
+                ${data.is_last_player ? '<br><small class="text-danger"><strong>Note:</strong> Lobby will be auto-deleted when the last player leaves</small>' : ''}
             </div>
         `);
     });

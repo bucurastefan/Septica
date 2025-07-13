@@ -1,45 +1,95 @@
 {% extends "base.html" %}
 
-{% block title %}Game Lobbies - Flask Auth App{% endblock %}
+{% block title %}Game Lobbies - Șeptică{% endblock %}
 
 {% block content %}
-<div class="container mt-4">
+<div class="container animate-fade-in">
+    <h1 class="page-title text-center mb-4">Game Lobbies</h1>
+    
     <div class="row">
         <div class="col-lg-8">
+            <!-- Active Games Section -->
+            {% if user_active_games %}
             <div class="card shadow mb-4">
-                <div class="card-header bg-primary text-white">
-                    <h4 class="mb-0">Your Lobbies</h4>
+                <div class="card-header">
+                    <i class="fas fa-gamepad me-2"></i> Your Active Games
+                </div>
+                <div class="card-body">
+                    <div class="list-group">
+                        {% for lobby in user_active_games %}
+                            <a href="{{ url_for('game_page', lobby_code=lobby.code) }}" class="list-group-item list-group-item-action lobby-card mb-3 bg-light" data-lobby-code="{{ lobby.code }}">
+                                <div class="d-flex w-100 justify-content-between">
+                                    <h5 class="mb-1 fw-bold">{{ lobby.name or 'Game #' + lobby.code }}</h5>
+                                    <span class="badge bg-danger">Game In Progress</span>
+                                </div>
+                                <p class="mb-1">
+                                    {% if lobby.owner_id == user.id %}
+                                        <span class="badge bg-warning text-dark">
+                                            <i class="fas fa-crown me-1"></i> Owner
+                                        </span>
+                                    {% else %}
+                                        <span class="badge bg-info">
+                                            <i class="fas fa-user me-1"></i> Member
+                                        </span>
+                                    {% endif %}
+                                    <span class="text-muted ms-2">
+                                        <i class="far fa-clock me-1"></i> Started {{ lobby.created_at.strftime('%Y-%m-%d %H:%M') }}
+                                    </span>
+                                </p>
+                            </a>
+                        {% endfor %}
+                    </div>
+                </div>
+            </div>
+            {% endif %}
+            
+            <!-- Your Lobbies Section -->
+            <div class="card shadow mb-4">
+                <div class="card-header">
+                    <i class="fas fa-bookmark me-2"></i> Your Lobbies
                 </div>
                 <div class="card-body">
                     {% if user_lobbies %}
                         <div class="list-group">
                             {% for lobby in user_lobbies %}
-                                <a href="{{ url_for('lobby_detail', lobby_code=lobby.code) }}" class="list-group-item list-group-item-action">
+                                <a href="{{ url_for('lobby_detail', lobby_code=lobby.code) }}" class="list-group-item list-group-item-action lobby-card mb-3" data-lobby-code="{{ lobby.code }}">
                                     <div class="d-flex w-100 justify-content-between">
-                                        <h5 class="mb-1">{{ lobby.name or 'Lobby #' + lobby.code }}</h5>
-                                        <small>{{ lobby.player_count }} player(s)</small>
+                                        <h5 class="mb-1 fw-bold">{{ lobby.name or 'Lobby #' + lobby.code }}</h5>
+                                        <span class="badge badge-primary">{{ lobby.player_count }} player(s)</span>
                                     </div>
                                     <p class="mb-1">
                                         {% if lobby.owner_id == user.id %}
-                                            <span class="badge bg-warning">Owner</span>
+                                            <span class="badge bg-warning text-dark">
+                                                <i class="fas fa-crown me-1"></i> Owner
+                                            </span>
                                         {% else %}
-                                            <span class="badge bg-info">Member</span>
+                                            <span class="badge bg-info">
+                                                <i class="fas fa-user me-1"></i> Member
+                                            </span>
                                         {% endif %}
                                         {% if lobby.is_public %}
-                                            <span class="badge bg-success">Public</span>
+                                            <span class="badge bg-success">
+                                                <i class="fas fa-globe me-1"></i> Public
+                                            </span>
                                         {% else %}
-                                            <span class="badge bg-secondary">Private</span>
+                                            <span class="badge bg-secondary">
+                                                <i class="fas fa-lock me-1"></i> Private
+                                            </span>
                                         {% endif %}
-                                        Created {{ lobby.created_at.strftime('%Y-%m-%d %H:%M') }}
+                                        <span class="text-muted ms-2">
+                                            <i class="far fa-clock me-1"></i> Created {{ lobby.created_at.strftime('%Y-%m-%d %H:%M') }}
+                                        </span>
                                     </p>
                                 </a>
                             {% endfor %}
                         </div>
                         <div class="alert alert-warning mt-3">
+                            <i class="fas fa-exclamation-triangle me-2"></i>
                             <strong>Note:</strong> You can only be in one lobby at a time. To join or create another lobby, leave your current one first.
                         </div>
                     {% else %}
                         <div class="alert alert-info">
+                            <i class="fas fa-info-circle me-2"></i>
                             You are not in any active lobbies. Create a new lobby or join an existing one!
                         </div>
                     {% endif %}
@@ -48,7 +98,10 @@
             
             <!-- Public Lobbies Section -->
             <div class="card shadow mb-4">
-                <div class="card-header bg-primary text-white d-flex justify-content-between align-items-center">
+                <div class="card-header d-flex justify-content-between align-items-center">
+                    <div>
+                        <i class="fas fa-users me-2"></i> Public Lobbies
+                    </div>
                     <h4 class="mb-0">Public Lobbies</h4>
                     <button id="refresh-lobbies" class="btn btn-light btn-sm">
                         <i class="bi bi-arrow-clockwise"></i> Refresh
@@ -58,7 +111,7 @@
                     {% if public_lobbies %}
                         <div class="list-group">
                             {% for lobby in public_lobbies %}
-                                <div class="list-group-item d-flex justify-content-between align-items-center">
+                                <div class="list-group-item d-flex justify-content-between align-items-center" data-lobby-code="{{ lobby.code }}">
                                     <div>
                                         <h5 class="mb-1">{{ lobby.name or 'Lobby #' + lobby.code }}</h5>
                                         <p class="mb-1">
@@ -149,8 +202,70 @@
     </div>
 </div>
 
+<script src="https://cdn.socket.io/4.6.0/socket.io.min.js"></script>
 <script>
 document.addEventListener('DOMContentLoaded', function() {
+    // Connect to Socket.IO
+    const socket = io();
+    
+    // Set up event listener for when game starts in a lobby
+    socket.on('lobby_game_started', function(data) {
+        try {
+            console.log(`Game started in lobby ${data.lobby_code}`);
+            
+            // Check all user lobbies to see if they need to be updated
+            const userLobbyCards = document.querySelectorAll('.list-group-item[data-lobby-code="' + data.lobby_code + '"]');
+            userLobbyCards.forEach(card => {
+                // If this is a user's lobby that started a game, update it
+                if (card.closest('.card').querySelector('.card-header').textContent.includes('Your Lobbies')) {
+                    // Move the card to the active games section, or reload page if the section doesn't exist yet
+                    const activeGamesSection = document.querySelector('.card-header i.fas.fa-gamepad');
+                    if (activeGamesSection) {
+                        // Update the card to show it's an active game
+                        card.href = card.href.replace('/lobby/', '/game/');
+                        const badgeContainer = card.querySelector('.d-flex.w-100.justify-content-between span.badge');
+                        if (badgeContainer) {
+                            badgeContainer.className = 'badge bg-danger';
+                            badgeContainer.textContent = 'Game In Progress';
+                        }
+                        
+                        // Move it to active games section
+                        const activeGamesContainer = activeGamesSection.closest('.card-header').nextElementSibling.querySelector('.list-group');
+                        activeGamesContainer.appendChild(card);
+                    } else {
+                        // If no active games section exists, just reload the page
+                        location.reload();
+                    }
+                }
+            });
+            
+            // Also remove the lobby from public lobbies if it exists there
+            const publicLobbyCards = document.querySelectorAll('#public-lobbies-container .list-group-item[data-lobby-code="' + data.lobby_code + '"]');
+            publicLobbyCards.forEach(card => {
+                card.remove();
+            });
+            
+            // Show a flash message
+            const flashContainer = document.querySelector('.container > .row > div:first-child');
+            if (flashContainer) {
+                const alertDiv = document.createElement('div');
+                alertDiv.className = 'alert alert-info alert-dismissible fade show';
+                alertDiv.innerHTML = 
+                    `<strong>Game Started!</strong> ${data.owner_username} has started a game in lobby ${data.lobby_name || data.lobby_code}.
+                    <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>`;
+                flashContainer.insertBefore(alertDiv, flashContainer.firstChild);
+                
+                // Auto-dismiss after 5 seconds
+                setTimeout(() => {
+                    alertDiv.classList.remove('show');
+                    setTimeout(() => alertDiv.remove(), 500);
+                }, 5000);
+            }
+        } catch (error) {
+            console.error('Error handling lobby_game_started event:', error);
+        }
+    });
+    
     const refreshButton = document.getElementById('refresh-lobbies');
     
     refreshButton.addEventListener('click', function() {

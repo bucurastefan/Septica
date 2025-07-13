@@ -19,6 +19,8 @@
                                 <th>Owner</th>
                                 <th>Players</th>
                                 <th>Status</th>
+                                <th>Game</th>
+                                <th>Game Status</th>
                                 <th>Created At</th>
                                 <th>Actions</th>
                             </tr>
@@ -32,6 +34,13 @@
                                 <td id="lobby-player-count-{{ lobby.code }}">{{ lobby.player_count }}</td>
                                 <td><span class="badge bg-success">Active</span></td>
                                 <td>{{ lobby.created_at.strftime('%Y-%m-%d %H:%M:%S') }}</td>
+                                <td id="lobby-game-status-{{ lobby.code }}">
+                                    {% if lobby.game_started %}
+                                    <span class="badge bg-danger">Game In Progress</span>
+                                    {% else %}
+                                    <span class="badge bg-info">Waiting</span>
+                                    {% endif %}
+                                </td>
                                 <td>
                                     <div class="btn-group" role="group">
                                         <a href="{{ url_for('admin_lobby_detail', lobby_code=lobby.code) }}" 
@@ -69,7 +78,7 @@
                             {% endfor %}
                             {% if not lobbies %}
                             <tr id="no-lobbies-row">
-                                <td colspan="7" class="text-center">
+                                <td colspan="8" class="text-center">
                                     <div class="alert alert-info mb-0" id="no-lobbies-message">
                                         No active lobbies found.
                                     </div>
@@ -124,6 +133,9 @@ document.addEventListener('DOMContentLoaded', function() {
                 <td id="lobby-player-count-${data.lobby_code}">1</td>
                 <td><span class="badge bg-success">Active</span></td>
                 <td>${data.created_at}</td>
+                <td id="lobby-game-status-${data.lobby_code}">
+                    ${data.game_started ? '<span class="badge bg-danger">Game In Progress</span>' : '<span class="badge bg-info">Waiting</span>'}
+                </td>
                 <td>
                     <div class="btn-group" role="group">
                         <a href="/admin/lobby/${data.lobby_code}" 
@@ -215,7 +227,7 @@ document.addEventListener('DOMContentLoaded', function() {
                         if (tableRows.length === 0) {
                             lobbiesTableBody.innerHTML = `
                                 <tr id="no-lobbies-row">
-                                    <td colspan="7" class="text-center">
+                                    <td colspan="8" class="text-center">
                                         <div class="alert alert-info mb-0" id="no-lobbies-message">
                                             No active lobbies found.
                                         </div>
@@ -253,6 +265,19 @@ document.addEventListener('DOMContentLoaded', function() {
     socket.on('admin_lobby_inactive', function(data) {
         const row = document.getElementById(`lobby-row-${data.lobby_code}`);
         if (row) {
+            // Add a reason tooltip if provided
+            if (data.reason) {
+                const reasonSpan = document.createElement('span');
+                reasonSpan.className = "badge bg-warning ms-2";
+                reasonSpan.title = data.reason;
+                reasonSpan.textContent = "Auto-deleted";
+                
+                const firstCell = row.querySelector('td:first-child');
+                if (firstCell) {
+                    firstCell.appendChild(reasonSpan);
+                }
+            }
+            
             row.classList.add('bg-danger', 'bg-opacity-25');
             // Change status badge
             const statusCell = row.querySelector('td:nth-child(5)');
@@ -268,7 +293,7 @@ document.addEventListener('DOMContentLoaded', function() {
                 if (tableRows.length === 0) {
                     lobbiesTableBody.innerHTML = `
                         <tr id="no-lobbies-row">
-                            <td colspan="7" class="text-center">
+                            <td colspan="8" class="text-center">
                                 <div class="alert alert-info mb-0" id="no-lobbies-message">
                                     No active lobbies found.
                                 </div>
@@ -277,6 +302,60 @@ document.addEventListener('DOMContentLoaded', function() {
                     `;
                 }
             }, 3000);
+        }
+    });
+    
+    // Handle game starting in a lobby
+    socket.on('lobby_game_started', function(data) {
+        const gameStatusCell = document.getElementById(`lobby-game-status-${data.lobby_code}`);
+        if (gameStatusCell) {
+            // Update game status
+            gameStatusCell.innerHTML = '<span class="badge bg-danger">Game In Progress</span>';
+            
+            // Briefly highlight the cell
+            gameStatusCell.classList.add('bg-danger', 'bg-opacity-25');
+            setTimeout(() => {
+                gameStatusCell.classList.remove('bg-danger', 'bg-opacity-25');
+            }, 2000);
+        }
+    });
+    
+    // Handle player leaving a game
+    socket.on('admin_player_left_game', function(data) {
+        const playerCountCell = document.getElementById(`lobby-player-count-${data.lobby_code}`);
+        if (playerCountCell) {
+            // Update player count
+            playerCountCell.textContent = data.remaining_players;
+            
+            // If this is the last player or only one player left, mark the cell with a warning
+            if (data.remaining_players <= 1) {
+                playerCountCell.classList.add('bg-danger', 'text-white');
+                
+                // If only one player left, add a tooltip/badge warning about potential auto-deletion
+                if (data.remaining_players === 1) {
+                    const row = document.getElementById(`lobby-row-${data.lobby_code}`);
+                    if (row) {
+                        const warningBadge = document.createElement('span');
+                        warningBadge.className = 'badge bg-warning ms-2';
+                        warningBadge.title = 'Lobby will be auto-deleted when last player leaves';
+                        warningBadge.textContent = 'At risk';
+                        playerCountCell.appendChild(warningBadge);
+                    }
+                }
+            } else {
+                // Briefly highlight the cell for non-critical player counts
+                playerCountCell.classList.add('bg-warning', 'bg-opacity-25');
+                setTimeout(() => {
+                    playerCountCell.classList.remove('bg-warning', 'bg-opacity-25');
+                }, 2000);
+            }
+        
+        // If this was the last player in the game, update game status
+        if (data.remaining_players === 0) {
+            const gameStatusCell = document.getElementById(`lobby-game-status-${data.lobby_code}`);
+            if (gameStatusCell) {
+                gameStatusCell.innerHTML = '<span class="badge bg-info">Waiting</span>';
+            }
         }
     });
 });

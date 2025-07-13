@@ -1,0 +1,285 @@
+/* Admin-specific dark mode styles */
+[data-theme="dark"] .card-header.bg-light {
+    background-color: #2d2d42 !important;
+    color: #f0f0f0 !important;
+}
+
+[data-theme="dark"] .card-header.bg-dark {
+    background-color: #1e1e2d !important;
+}
+
+[data-theme="dark"] .card-header.bg-info,
+[data-theme="dark"] .card-header.bg-warning,
+[data-theme="dark"] .card-header.bg-danger {
+    color: #f0f0f0 !important;
+}
+
+/* Generic card header styling */
+[data-theme="dark"] .card-header {
+    border-bottom-color: var(--card-border);
+}
+
+/* Fix modal dialogs in dark mode */
+[data-theme="dark"] .modal-content {
+    background-color: var(--card-color);
+    border-color: var(--card-border);
+}
+
+[data-theme="dark"] .modal-body {
+    background-color: var(--card-color);
+    color: var(--text-color);
+}
+
+[data-theme="dark"] .modal-header {
+    border-bottom-color: var(--card-border);
+}
+
+[data-theme="dark"] .modal-footer {
+    border-top-color: var(--card-border);
+    background-color: var(--card-color);
+}
+
+[data-theme="dark"] .modal-header .btn-close {
+    filter: invert(1) grayscale(100%) brightness(200%);
+}
+
+/* Fix background colors */
+[data-theme="dark"] .bg-light {
+    background-color: #2d2d42 !important;
+}
+
+[data-theme="dark"] .bg-dark.text-white {
+    background-color: #1e1e2d !important;
+}
+
+/* Fix refresh button in admin lobby details */
+[data-theme="dark"] #refresh-lobby.btn-light {
+    background-color: rgba(255, 255, 255, 0.2);
+    color: white;
+    border: none;
+}
+
+[data-theme="dark"] #refresh-lobby.btn-light:hover {
+    background-color: rgba(255, 255, 255, 0.3);
+}
+
+/* Fix text colors */
+[data-theme="dark"] .text-dark {
+    color: #f0f0f0 !important;
+}
+
+/* Fix card gradients in admin dashboard */
+[data-theme="dark"] .card-gradient {
+    background: linear-gradient(135deg, #3a0070 0%, #6a0dad 100%);
+}
+
+[data-theme="dark"] .card-gradient .card-title,
+[data-theme="dark"] .card-gradient .card-text,
+[data-theme="dark"] .card-gradient i {
+    color: white !important;
+}
+
+/* Fix tables */
+[data-theme="dark"] .table {
+    color: #f0f0f0 !important;
+}
+
+[data-theme="dark"] .table-striped > tbody > tr:nth-of-type(odd) {
+    background-color: rgba(255, 255, 255, 0.05);
+}
+
+[data-theme="dark"] .table-hover > tbody > tr:hover {
+    background-color: rgba(144, 101, 255, 0.1);
+}
+
+[data-theme="dark"] .table th,
+[data-theme="dark"] .table td {
+    color: #f0f0f0 !important;
+}
+[data-theme="dark"] .table {
+    color: var(--text-color);
+}
+
+[data-theme="dark"] .table-striped > tbody > tr:nth-of-type(odd) {
+    background-color: rgba(255, 255, 255, 0.05);
+}
+
+[data-theme="dark"] .table-hover > tbody > tr:hover {
+    background-color: rgba(144, 101, 255, 0.1);
+}
+
+/* Fix for tables inside cards */
+[data-theme="dark"] .card .table {
+    border-color: var(--card-border);
+}
+
+[data-theme="dark"] .card .table th,
+[data-theme="dark"] .card .table td {
+    border-color: var(--card-border);
+    color: var(--text-color) !important;
+}
+
+[data-theme="dark"] .card .table thead th {
+    background-color: rgba(144, 101, 255, 0.1);
+    color: #f0f0f0 !important;
+    border-bottom-width: 2px;
+}
+
+/* Fix table row hover states */
+[data-theme="dark"] .table tbody tr:hover td {
+    color: white !important;
+}
+
+/* Fix text in table-striped rows */
+[data-theme="dark"] .table-striped > tbody > tr:nth-of-type(odd) > td {
+    color: #f0f0f0 !important;
+}
+
+/* Fix form controls */
+[data-theme="dark"] .form-control:disabled, 
+[data-theme="dark"] .form-control:read-only {
+    background-color: #1e1e2d;
+    color: var(--text-light);
+}
+
+[data-theme="dark"] .form-text {
+    color: var(--text-light) !important;
+}
+
+[data-theme="dark"] .form-label {
+    color: var(--text-color);
+}
+
+/* Fix definition lists */
+[data-theme="dark"] dl.row dt {
+    color: var(--text-color);
+}
+
+[data-theme="dark"] dl.row dd {
+    color: var(--text-light);
+}
+
+/* Fix table specific text styles */
+[data-theme="dark"] .table .text-muted {
+    color: #b8b8c8 !important;
+}
+
+[data-theme="dark"] .table .fas,
+[data-theme="dark"] .table .far,
+[data-theme="dark"] .table .fa {
+    color: #f0f0f0;
+}
+
+[data-theme="dark"] .table small {
+    color: #b8b8c8;
+}
+
+/* Fix buttons in admin pages */
+[data-theme="dark"] .btn-light {
+    background-color: rgba(255, 255, 255, 0.1);
+    color: var(--text-color);
+    border-color: transparent;
+}
+
+[data-theme="dark"] .btn-light:hover {
+    background-color: rgba(255, 255, 255, 0.2);
+    color: white;
+}
+
+[data-theme="dark"] .btn-outline-primary {
+    color: var(--primary-color);
+    border-color: var(--primary-color);
+}
+
+[data-theme="dark"] .btn-outline-primary:hover {
+    background-color: var(--primary-color);
+    color: white;
+}
+
+/* Fix badges */
+[data-theme="dark"] .badge.bg-warning.text-dark {
+    color: #121220 !important;
+}
+
+/* Fix btn groups */
+[data-theme="dark"] .btn-group .btn-sm {
+    color: #f0f0f0;
+}
+
+/* Fix badge contrasts in admin pages */
+[data-theme="dark"] .badge {
+    font-weight: 600;
+}
+
+[data-theme="dark"] .badge.bg-success {
+    color: #121220 !important;
+    background-color: var(--success-color) !important;
+}
+
+[data-theme="dark"] .badge.bg-danger {
+    color: #121220 !important;
+    background-color: var(--danger-color) !important;
+}
+
+[data-theme="dark"] .badge.bg-secondary {
+    color: #f0f0f0 !important;
+}
+
+/* Fix specific table elements */
+[data-theme="dark"] .table a {
+    color: var(--primary-color);
+}
+
+[data-theme="dark"] .table a:hover {
+    color: var(--secondary-color);
+}
+
+[data-theme="dark"] .table .username,
+[data-theme="dark"] .table .user-info,
+[data-theme="dark"] .table .lobby-info {
+    color: #f0f0f0 !important;
+}
+
+/* Fix modal header background colors */
+[data-theme="dark"] .modal-header.bg-danger {
+    background-color: #d32f2f !important;
+}
+
+/* Fix alert colors */
+[data-theme="dark"] .alert {
+    background-color: var(--card-color);
+}
+
+/* Fix activity log in dashboard */
+[data-theme="dark"] #activity-log .text-muted {
+    color: var(--text-light) !important;
+}
+
+[data-theme="dark"] #activity-log .activity-item .alert {
+    border-left: 3px solid;
+}
+
+[data-theme="dark"] #activity-log .activity-item .alert-success {
+    background-color: rgba(29, 233, 182, 0.1);
+    border-left-color: var(--success-color);
+}
+
+[data-theme="dark"] #activity-log .activity-item .alert-info {
+    background-color: rgba(3, 169, 244, 0.1);
+    border-left-color: #03a9f4;
+}
+
+[data-theme="dark"] #activity-log .activity-item .alert-warning {
+    background-color: rgba(255, 202, 40, 0.1);
+    border-left-color: var(--warning-color);
+}
+
+[data-theme="dark"] #activity-log .activity-item .alert-danger {
+    background-color: rgba(255, 82, 82, 0.1);
+    border-left-color: var(--danger-color);
+}
+
+[data-theme="dark"] #activity-log .activity-item .alert-primary {
+    background-color: rgba(144, 101, 255, 0.1);
+    border-left-color: var(--primary-color);
+}

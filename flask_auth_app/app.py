@@ -1215,9 +1215,19 @@ def handle_join_admin_lobby_room(data):
 
 # Update the run statement to use SocketIO
 if __name__ == '__main__':
-    # For development:
-    # app.run(debug=True)
-    socketio.run(app, debug=True)
-    
-    # For production hosting (allows external connections):
-    # socketio.run(app, host='0.0.0.0', port=5000, debug=False)
+    import argparse
+
+    # Add argument parsing
+    parser = argparse.ArgumentParser(description="Run the Flask app.")
+    parser.add_argument('--host-all', action='store_true', help="Bind the Flask app to 0.0.0.0 for external access.")
+    parser.add_argument('--host', default='127.0.0.1', help="Specify the host to bind the Flask app.")
+    parser.add_argument('--port', type=int, default=5000, help="Specify the port to run the Flask app.")
+
+    args = parser.parse_args()
+
+    if args.host_all:
+        # Run the app on 0.0.0.0 if --host-all is passed
+        socketio.run(app, host='0.0.0.0', port=args.port, debug=False)
+    else:
+        # Use the specified host and port
+        socketio.run(app, host=args.host, port=args.port, debug=True)

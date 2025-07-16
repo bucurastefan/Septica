@@ -283,3 +283,47 @@
     background-color: rgba(144, 101, 255, 0.1);
     border-left-color: var(--primary-color);
 }
+
+/* Ensure playing cards are always white */
+[data-theme="dark"] .playing-card {
+    background: #fff !important;
+    /* color: #222 !important; */
+    border: 1px solid #ccc;
+    border-radius: 8px;
+    box-shadow: 0 2px 6px rgba(0,0,0,0.08);
+}
+[data-theme="dark"] .card-back {
+    background: #fff !important;
+    border: 1px solid #bbb;
+}
+
+/* Restore suit colors in dark mode */
+[data-theme="dark"] .playing-card {
+    color: inherit; /* fallback */
+}
+[data-theme="dark"] .playing-card.hearts,
+[data-theme="dark"] .playing-card.diamonds {
+    color: #d32f2f !important; /* red for hearts/diamonds */
+}
+[data-theme="dark"] .playing-card.spades,
+[data-theme="dark"] .playing-card.clubs {
+    color: #222 !important; /* black for spades/clubs */
+}
+
+/* Central pile layout */
+.center-pile {
+    position: relative;
+    width: 120px;
+    height: 120px;
+    margin: 0 auto;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+}
+.center-pile .playing-card {
+    position: absolute;
+    left: 50%;
+    top: 50%;
+    transition: all 0.3s cubic-bezier(.4,2,.6,1);
+    /* Remove default transform here, JS sets it */
+}

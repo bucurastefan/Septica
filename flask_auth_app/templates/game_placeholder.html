@@ -1,110 +1,265 @@
 {% extends "base.html" %}
 
-{% block title %}Game Started - Șeptică{% endblock %}
+{% block title %}Șeptică Game{% endblock %}
 
 {% block content %}
-<div class="container-fluid animate-fade-in">
-    <div class="row justify-content-center">
-        <div class="col-md-8">
-            <div class="card game-placeholder-card mt-5">
-                <div class="card-header">
-                    <div class="d-flex justify-content-between align-items-center">
-                        <div>
-                            <i class="fas fa-gamepad me-2"></i> Game Room - Lobby: {{ lobby.code }}
-                        </div>
-                        <div>
-                            <span class="badge bg-success me-2">
-                                <i class="fas fa-users me-1"></i> {{ lobby.player_count }} Players
-                            </span>
-                        </div>
-                    </div>
-                </div>
-                <div class="card-body text-center py-5">
-                    <h2 class="mb-4">Game Started - Placeholder</h2>
-                    <p class="lead">This screen will be replaced by the actual game in a future update.</p>
-                    <p>You are playing in {{ lobby.name }} with:</p>
-                    <div class="row justify-content-center mb-4">
-                        <div class="col-md-8">
-                            <div class="list-group">
-                                {% for player in lobby.players %}
-                                <div class="list-group-item d-flex justify-content-between align-items-center">
-                                    <span>{{ player.user.username }}</span>
-                                    <span class="badge {% if player.team == 1 %}bg-primary{% elif player.team == 2 %}bg-danger{% else %}bg-secondary{% endif %}">
-                                        Team {{ player.team }}
-                                    </span>
-                                </div>
-                                {% endfor %}
-                            </div>
-                        </div>
-                    </div>
-                    <form action="{{ url_for('leave_game', lobby_code=lobby.code) }}" method="POST">
-                        <button type="submit" class="btn btn-danger btn-lg">
-                            <i class="fas fa-sign-out-alt me-2"></i> Leave Game
-                        </button>
-                    </form>
-                </div>
-            </div>
+<div class="game-container">
+    <input type="hidden" id="lobby-code" value="{{ lobby.code }}">
+    
+    <div class="game-info">
+        <div class="team-score">Team 1: <span class="team1-score">0</span></div>
+        <div class="game-status">
+            <div class="trump-suit"></div>
+            <div class="deck-count">Cards: <span class="cards-in-deck">0</span></div>
         </div>
+        <div class="team-score">Team 2: <span class="team2-score">0</span></div>
+    </div>
+
+    <div class="game-board">
+        <div class="center-area">
+            <div class="center-pile"></div>
+        </div>
+
+        <div class="player-area bottom">
+            <div class="player-hand me"></div>
+        </div>
+    </div>
+
+    <div class="player-avatar player-turn">
+        {{ current_user.username }}
     </div>
 </div>
 {% endblock %}
 
+{% block extra_styles %}
+<style>
+.game-container {
+    width: 100%;
+    height: 100vh;
+    padding: 20px;
+    background: #1a472a;
+    color: white;
+}
+
+.game-info {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 15px;
+    background: rgba(0, 0, 0, 0.2);
+    border-radius: 8px;
+    margin-bottom: 20px;
+}
+
+.game-board {
+    position: relative;
+    width: 100%;
+    height: calc(100vh - 200px);
+    background: #2a5738;
+    border-radius: 15px;
+    padding: 20px;
+    display: grid;
+    grid-template-areas: 
+        ". top ."
+        "left center right"
+        ". bottom .";
+}
+
+.player-area {
+    padding: 10px;
+    text-align: center;
+}
+
+.player-area.left { grid-area: left; }
+.player-area.top { grid-area: top; }
+.player-area.right { grid-area: right; }
+.player-area.bottom { grid-area: bottom; }
+
+.center-area {
+    grid-area: center;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+}
+
+.player-hand {
+    display: flex;
+    justify-content: center;
+    min-height: 130px;
+    padding: 10px;
+}
+
+.playing-card {
+    width: 80px;
+    height: 120px;
+    background: #ffffff;
+    border-radius: 8px;
+    box-shadow: 2px 2px 5px rgba(0, 0, 0, 0.2);
+    display: flex;
+    flex-direction: column;
+    justify-content: space-between;
+    padding: 10px;
+    margin: 0 -15px;
+    position: relative;
+    transition: transform 0.2s ease-in-out;
+}
+
+.playing-card.playable:hover {
+    transform: translateY(-20px);
+    cursor: pointer;
+}
+
+.playing-card.hearts, .playing-card.diamonds {
+    color: #ff0000;
+}
+
+.playing-card.clubs, .playing-card.spades {
+    color: #000000;
+}
+
+.card-value {
+    font-size: 24px;
+    font-weight: bold;
+}
+
+.card-suit {
+    font-size: 36px;
+    text-align: center;
+}
+
+.card-back {
+    background: linear-gradient(45deg, #1a472a 25%, #2a5738 25%, #2a5738 50%, #1a472a 50%, #1a472a 75%, #2a5738 75%);
+    background-size: 20px 20px;
+    border: 2px solid rgba(255, 255, 255, 0.2);
+}
+
+.center-pile {
+    width: 200px;
+    height: 200px;
+    background: rgba(255, 255, 255, 0.1);
+    border-radius: 50%;
+    position: relative;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+}
+
+.current-turn {
+    box-shadow: 0 0 15px #ffd700;
+    border-radius: 15px;
+}
+
+.opponent-hand:not(.has-cards) {
+    display: none;
+}
+
+.team-score {
+    font-size: 20px;
+    font-weight: bold;
+    padding: 10px 20px;
+    background: rgba(255, 255, 255, 0.1);
+    border-radius: 5px;
+}
+
+.player-avatar {
+    font-size: 18px;
+    font-weight: bold;
+    padding: 10px 20px;
+    background: rgba(255, 255, 255, 0.1);
+    border-radius: 5px;
+    margin-top: 10px;
+    text-align: center;
+}
+</style>
+{% endblock %}
+
 {% block extra_scripts %}
-<script src="https://cdn.socket.io/4.6.0/socket.io.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/socket.io/4.0.1/socket.io.js"></script>
 <script>
-    // Connect to SocketIO
-    document.addEventListener('DOMContentLoaded', function() {
-        const socket = io();
-        
-        // Join the lobby room
-        socket.emit('join_lobby_room', {
-            lobby_code: '{{ lobby.code }}'
-        });
-        
-        // Listen for player left game event
-        socket.on('player_left_game', function(data) {
-            console.log(`${data.username} has left the game`);
-            
-            // Update the player list
-            const playerItems = document.querySelectorAll('.list-group-item');
-            playerItems.forEach(item => {
-                if (item.textContent.includes(data.username)) {
-                    // Create and show notification
-                    const alertDiv = document.createElement('div');
-                    
-                    // Different message if this is the last player leaving
-                    if (data.is_last_player) {
-                        alertDiv.className = 'alert alert-danger alert-dismissible fade show mt-3';
-                        alertDiv.innerHTML = 
-                            `<strong>${data.username} has left the game!</strong> You are the last player remaining. The lobby will be deleted when you leave.
-                            <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>`;
-                    } else {
-                        alertDiv.className = 'alert alert-warning alert-dismissible fade show mt-3';
-                        alertDiv.innerHTML = 
-                            `<strong>${data.username} has left the game!</strong> There are now ${data.remaining_players} players remaining.
-                            <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>`;
-                    }
-                    
-                    const cardBody = document.querySelector('.card-body');
-                    cardBody.insertBefore(alertDiv, cardBody.firstChild);
-                    
-                    // Auto-dismiss after 5 seconds
-                    setTimeout(() => {
-                        alertDiv.classList.remove('show');
-                        setTimeout(() => alertDiv.remove(), 500);
-                    }, 5000);
-                    
-                    // Remove the player from the list
-                    item.remove();
-                    
-                    // Update player count badge
-                    const playerBadge = document.querySelector('.badge.bg-success');
-                    if (playerBadge) {
-                        playerBadge.innerHTML = `<i class="fas fa-users me-1"></i> ${data.remaining_players} Players`;
-                    }
-                }
-            });
-        });
+const socket = io();
+const lobbyCode = document.getElementById('lobby-code').value;
+
+// Join game room
+socket.emit('join_lobby_room', { lobby_code: lobbyCode });
+
+// Initialize game
+socket.emit('initialize_game', { lobby_code: lobbyCode });
+
+// Handle game state updates
+socket.on('game_state_update', function(gameState) {
+    updateGameDisplay(gameState);
+});
+
+// Handle game errors
+socket.on('game_error', function(data) {
+    alert(data.message);
+});
+
+function updateGameDisplay(gameState) {
+    // Update scores
+    document.querySelector('.team1-score').textContent = gameState.scores[0];
+    document.querySelector('.team2-score').textContent = gameState.scores[1];
+    
+    // Update trump suit
+    document.querySelector('.trump-suit').textContent = `Trump: ${getSuitSymbol(gameState.trump_suit)}`;
+    
+    // Update deck count
+    document.querySelector('.cards-in-deck').textContent = gameState.cards_in_deck;
+    
+    // Update player's hand
+    const playerHand = document.querySelector('.player-hand.me');
+    playerHand.innerHTML = '';
+    gameState.hand.forEach((card, index) => {
+        const cardElement = createCardElement(card, index);
+        playerHand.appendChild(cardElement);
     });
+    
+    // Update current trick
+    const centerPile = document.querySelector('.center-pile');
+    centerPile.innerHTML = '';
+    gameState.current_trick.forEach(([position, card], index) => {
+        const cardElement = createCardElement(card);
+        cardElement.style.transform = `rotate(${position * 90}deg) translate(0, -50px)`;
+        centerPile.appendChild(cardElement);
+    });
+}
+
+function createCardElement(card, index) {
+    const cardDiv = document.createElement('div');
+    cardDiv.className = `playing-card ${card.suit}`;
+    cardDiv.innerHTML = `
+        <div class="card-value">${card.value}</div>
+        <div class="card-suit">${getSuitSymbol(card.suit)}</div>
+    `;
+    
+    if (index !== undefined) {
+        cardDiv.onclick = () => playCard(index);
+    }
+    
+    return cardDiv;
+}
+
+function getSuitSymbol(suit) {
+    const symbols = {
+        'hearts': '♥',
+        'diamonds': '♦',
+        'clubs': '♣',
+        'spades': '♠'
+    };
+    return symbols[suit] || suit;
+}
+
+function playCard(cardIndex) {
+    socket.emit('play_card', {
+        lobby_code: lobbyCode,
+        card_index: cardIndex
+    });
+}
+
+function leaveGame() {
+    if (confirm('Are you sure you want to leave the game?')) {
+        window.location.href = `/game/${lobbyCode}/leave`;
+    }
+}
 </script>
 {% endblock %}

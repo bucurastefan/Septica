@@ -1,6 +1,7 @@
 from flask import Flask, render_template, url_for, redirect, request, flash, session, jsonify
 from flask_sqlalchemy import SQLAlchemy
 from flask_socketio import SocketIO, emit, join_room, leave_room
+from flask_login import LoginManager, UserMixin, login_user, login_required, logout_user, current_user
 from werkzeug.security import generate_password_hash, check_password_hash
 import os
 import sqlite3
@@ -8,6 +9,10 @@ from datetime import datetime
 import logging
 import random
 import string
+from game_logic import SepticaGame
+
+# Initialize game storage
+games = {}  # Dictionary to store active games
 
 # Set up logging
 logging.basicConfig(level=logging.DEBUG)
@@ -28,8 +33,18 @@ db = SQLAlchemy(app)
 # Initialize SocketIO
 socketio = SocketIO(app, cors_allowed_origins="*")
 
+# Initialize Flask-Login
+login_manager = LoginManager()
+login_manager.init_app(app)
+login_manager.login_view = 'login'
+
+@login_manager.user_loader
+def load_user(user_id):
+    """User loader function for Flask-Login"""
+    return User.query.get(int(user_id))
+
 # Define User model
-class User(db.Model):
+class User(db.Model, UserMixin):
     id = db.Column(db.Integer, primary_key=True)
     username = db.Column(db.String(80), unique=True, nullable=False)
     email = db.Column(db.String(120), unique=True, nullable=False)
@@ -265,12 +280,10 @@ def login():
             user = User.query.filter_by(username=username).first()
             
             if user and check_password_hash(user.password, password):
-                session.clear()  # Clear any existing session data
+                login_user(user)
                 session['username'] = username
-                session['is_admin'] = bool(user.is_admin)  # Ensure boolean conversion
+                session['is_admin'] = bool(user.is_admin)
                 flash('Login successful!', 'success')
-                
-                # Redirect directly to lobbies page for all users
                 return redirect(url_for('lobbies'))
             else:
                 flash('Invalid username or password!', 'error')
@@ -337,7 +350,8 @@ def home():
 
 @app.route('/logout')
 def logout():
-    session.pop('username', None)
+    logout_user()
+    session.clear()
     flash('You have been logged out!', 'success')
     return redirect(url_for('login'))
 
@@ -1010,38 +1024,12 @@ def change_team(lobby_code):
         return redirect(url_for('lobby_detail', lobby_code=lobby_code))
 
 @app.route('/game/<lobby_code>')
+@login_required
 def game_page(lobby_code):
-    """Show the game page for a lobby"""
-    if 'username' not in session:
-        flash('Please login first!', 'error')
-        return redirect(url_for('login'))
-    
-    try:
-        username = session['username']
-        user = User.query.filter_by(username=username).first()
-        
-        # Get lobby
-        lobby = Lobby.query.filter_by(code=lobby_code, is_active=True).first()
-        if not lobby:
-            flash('Lobby not found or no longer active!', 'error')
-            return redirect(url_for('lobbies'))
-        
-        # Check if game has started
-        if not lobby.game_started:
-            flash('Game has not started yet!', 'error')
-            return redirect(url_for('lobby_detail', lobby_code=lobby_code))
-        
-        # Check if user is in this lobby
-        lobby_player = LobbyPlayer.query.filter_by(lobby_id=lobby.id, user_id=user.id).first()
-        if not lobby_player:
-            flash('You are not a member of this lobby!', 'error')
-            return redirect(url_for('lobbies'))
-        
-        return render_template('game_placeholder.html', lobby=lobby, user=user)
-    except Exception as e:
-        logger.error(f"Error accessing game page: {e}")
-        flash('An error occurred. Please try again.', 'error')
-        return redirect(url_for('lobbies'))
+    lobby = Lobby.query.filter_by(code=lobby_code).first_or_404()
+    return render_template('game_placeholder.html', 
+                         lobby=lobby,
+                         current_user=current_user)  # Flask-Login makes current_user available automatically
 
 @app.route('/game/<lobby_code>/leave', methods=['POST'])
 def leave_game(lobby_code):
@@ -1212,6 +1200,71 @@ def handle_join_admin_lobby_room(data):
     admin_lobby_room = f"admin_lobby_{lobby_code}"
     join_room(admin_lobby_room)
     logger.info(f"Admin joined room: {admin_lobby_room}")
+
+@socketio.on('initialize_game')
+def handle_initialize_game(data):
+    """Initialize the game state when a player joins"""
+    lobby_code = data.get('lobby_code')
+    
+    # Create new game if it doesn't exist
+    if lobby_code not in games:
+        games[lobby_code] = SepticaGame()
+    
+    # Get the lobby and player information
+    lobby = Lobby.query.filter_by(code=lobby_code).first()
+    if not lobby:
+        return
+    
+    username = session.get('username')
+    user = User.query.filter_by(username=username).first()
+    if not user:
+        return
+    
+    # Find player's position based on join order and team assignment
+    lobby_players = LobbyPlayer.query.filter_by(lobby_id=lobby.id).order_by(LobbyPlayer.team, LobbyPlayer.joined_at).all()
+    player_position = next((i for i, lp in enumerate(lobby_players) if lp.user_id == user.id), None)
+    
+    if player_position is not None:
+        # Join player-specific room
+        player_room = f"{lobby_code}_player_{player_position}"
+        join_room(player_room)
+        
+        # Get and send initial game state to player
+        game_state = games[lobby_code].get_game_state(player_position)
+        game_state['position'] = player_position  # Add player position to game state
+        game_state['username'] = username  # Add username to game state
+        
+        emit('game_state_update', game_state)
+
+@socketio.on('play_card')
+def handle_play_card(data):
+    lobby_code = data.get('lobby_code')
+    card_index = data.get('card_index')
+    
+    if lobby_code not in games:
+        return
+        
+    # Get player position
+    lobby = Lobby.query.filter_by(code=lobby_code).first()
+    username = session.get('username')
+    user = User.query.filter_by(username=username).first()
+    
+    lobby_players = LobbyPlayer.query.filter_by(lobby_id=lobby.id).order_by(LobbyPlayer.joined_at).all()
+    player_position = next((i for i, lp in enumerate(lobby_players) if lp.user_id == user.id), None)
+    
+    if player_position is None:
+        return
+        
+    # Play the card
+    success, error = games[lobby_code].play_card(player_position, card_index)
+    
+    if success:
+        # Broadcast updated game state to all players
+        for i, _ in enumerate(lobby_players):
+            game_state = games[lobby_code].get_game_state(i)
+            emit('game_state_update', game_state, room=f"{lobby_code}_player_{i}")
+    else:
+        emit('game_error', {'message': error})
 
 # Update the run statement to use SocketIO
 if __name__ == '__main__':

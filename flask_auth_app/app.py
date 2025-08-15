@@ -13,29 +13,30 @@ from game_logic import SepticaGame
 
 # Initialize game storage
 games = {}  # Dictionary to store active games
+game_completion_messages = {}  # Dictionary to store completion messages for users
 
 # Set up logging
 logging.basicConfig(level=logging.DEBUG)
 logger = logging.getLogger(__name__)
 
-app = Flask(__name__)
-app.config["SECRET_KEY"] = os.environ.get("SECRET_KEY", "default_secret_key")
+application = Flask(__name__)
+application.config["SECRET_KEY"] = os.environ.get("SECRET_KEY", "default_secret_key")
 
 # SQLAlchemy configuration
 basedir = os.path.abspath(os.path.dirname(__file__))
 db_path = os.path.join(basedir, 'users.db')
-app.config["SQLALCHEMY_DATABASE_URI"] = os.environ.get("DATABASE_URL", f"sqlite:///{db_path}")
-app.config["SQLALCHEMY_TRACK_MODIFICATIONS"] = False
+application.config["SQLALCHEMY_DATABASE_URI"] = os.environ.get("DATABASE_URL", f"sqlite:///{db_path}")
+application.config["SQLALCHEMY_TRACK_MODIFICATIONS"] = False
 
 # Initialize SQLAlchemy
-db = SQLAlchemy(app)
+db = SQLAlchemy(application)
 
 # Initialize SocketIO
-socketio = SocketIO(app, cors_allowed_origins="*")
+socketio = SocketIO(application, cors_allowed_origins="*")
 
 # Initialize Flask-Login
 login_manager = LoginManager()
-login_manager.init_app(app)
+login_manager.init_app(application)
 login_manager.login_view = 'login'
 
 @login_manager.user_loader
@@ -69,6 +70,12 @@ class Lobby(db.Model):
     game_started = db.Column(db.Boolean, default=False)  # New field to track if game has started
     owner_id = db.Column(db.Integer, db.ForeignKey('user.id'), nullable=False)
     
+    # Lobby statistics and game multiplier
+    team1_wins = db.Column(db.Integer, default=0)  # Team 1 wins in lobby
+    team2_wins = db.Column(db.Integer, default=0)  # Team 2 wins in lobby  
+    total_games_played = db.Column(db.Integer, default=0)  # Total number of games played
+    next_game_multiplier = db.Column(db.Integer, default=1)  # Points multiplier for next game
+    
     # Relationships
     owner = db.relationship('User', foreign_keys=[owner_id])
     players = db.relationship('LobbyPlayer', back_populates='lobby', cascade='all, delete-orphan')
@@ -95,6 +102,29 @@ class Lobby(db.Model):
     @property
     def is_full(self):
         return self.player_count >= 4
+    
+    def get_next_starter_info(self):
+        """Get information about who will start the next game"""
+        from game_logic import SepticaGame
+        next_starter_position = SepticaGame.calculate_starting_player(self.total_games_played)
+        
+        # Get ordered players (Team Purple: positions 0,2; Team Black: positions 1,3)
+        ordered_players = get_ordered_players(self.id)
+        
+        if len(ordered_players) >= 4:
+            starter_player = ordered_players[next_starter_position]
+            team_name = "Purple" if next_starter_position % 2 == 0 else "Black"
+            player_number = 1 if next_starter_position < 2 else 2
+            
+            return {
+                'username': starter_player.user.username,
+                'position': next_starter_position,
+                'team_name': team_name,
+                'player_number': player_number,
+                'can_show': True
+            }
+        
+        return {'can_show': False}
     
     def assign_team(self, user_id):
         player = LobbyPlayer.query.filter_by(lobby_id=self.id, user_id=user_id).first()
@@ -127,6 +157,7 @@ class LobbyPlayer(db.Model):
     user_id = db.Column(db.Integer, db.ForeignKey('user.id'), nullable=False)
     joined_at = db.Column(db.DateTime, default=datetime.utcnow)
     team = db.Column(db.Integer, default=0)  # 0 = unassigned, 1 = team 1, 2 = team 2
+    voted_reset_stats = db.Column(db.Boolean, default=False)  # Track if player voted to reset stats
     
     # Relationships
     lobby = db.relationship('Lobby', back_populates='players')
@@ -141,6 +172,22 @@ def generate_lobby_code():
         code = ''.join(random.choices(string.ascii_uppercase + string.digits, k=6))
         if not Lobby.query.filter_by(code=code).first():
             return code
+
+def get_ordered_players(lobby_id):
+    """Get players ordered properly for game seating (Team Purple: positions 0,2; Team Black: positions 1,3)"""
+    team1_players = LobbyPlayer.query.filter_by(lobby_id=lobby_id, team=1).order_by(LobbyPlayer.joined_at).all()
+    team2_players = LobbyPlayer.query.filter_by(lobby_id=lobby_id, team=2).order_by(LobbyPlayer.joined_at).all()
+    
+    # Arrange players in alternating teams: Team1, Team2, Team1, Team2
+    # This ensures Team Purple gets positions 0,2 and Team Black gets positions 1,3
+    ordered_players = []
+    for i in range(2):  # Max 2 players per team
+        if i < len(team1_players):
+            ordered_players.append(team1_players[i])
+        if i < len(team2_players):
+            ordered_players.append(team2_players[i])
+    
+    return ordered_players
 
 # Function to check if column exists in SQLite table
 def column_exists(table_name, column_name):
@@ -229,8 +276,53 @@ def add_team_column():
     except Exception as e:
         logger.error(f"Error adding team column: {e}")
 
+def add_lobby_stats_columns():
+    try:
+        conn = sqlite3.connect(db_path)
+        cursor = conn.cursor()
+        
+        # Add team1_wins column
+        if os.path.exists(db_path) and not column_exists('lobby', 'team1_wins'):
+            logger.info("Adding team1_wins column to lobby table")
+            cursor.execute("ALTER TABLE lobby ADD COLUMN team1_wins INTEGER DEFAULT 0")
+            
+        # Add team2_wins column
+        if os.path.exists(db_path) and not column_exists('lobby', 'team2_wins'):
+            logger.info("Adding team2_wins column to lobby table")
+            cursor.execute("ALTER TABLE lobby ADD COLUMN team2_wins INTEGER DEFAULT 0")
+            
+        # Add total_games_played column
+        if os.path.exists(db_path) and not column_exists('lobby', 'total_games_played'):
+            logger.info("Adding total_games_played column to lobby table")
+            cursor.execute("ALTER TABLE lobby ADD COLUMN total_games_played INTEGER DEFAULT 0")
+            
+        # Add next_game_multiplier column
+        if os.path.exists(db_path) and not column_exists('lobby', 'next_game_multiplier'):
+            logger.info("Adding next_game_multiplier column to lobby table")
+            cursor.execute("ALTER TABLE lobby ADD COLUMN next_game_multiplier INTEGER DEFAULT 1")
+            
+        conn.commit()
+        conn.close()
+        logger.info("Lobby statistics columns added successfully")
+    except Exception as e:
+        logger.error(f"Error adding lobby statistics columns: {e}")
+
+def add_voted_reset_stats_column():
+    """Add voted_reset_stats column to lobby_player table"""
+    try:
+        if os.path.exists(db_path) and not column_exists('lobby_player', 'voted_reset_stats'):
+            logger.info("Adding voted_reset_stats column to lobby_player table")
+            conn = sqlite3.connect(db_path)
+            cursor = conn.cursor()
+            cursor.execute("ALTER TABLE lobby_player ADD COLUMN voted_reset_stats BOOLEAN DEFAULT 0")
+            conn.commit()
+            conn.close()
+            logger.info("voted_reset_stats column added successfully")
+    except Exception as e:
+        logger.error(f"Error adding voted_reset_stats column: {e}")
+
 # Create tables and admin user if it doesn't exist
-with app.app_context():
+with application.app_context():
     # First make sure the is_admin column exists
     add_is_admin_column()
     
@@ -245,6 +337,12 @@ with app.app_context():
     
     # Then make sure the team column exists in lobby_player table
     add_team_column()
+    
+    # Then make sure lobby statistics columns exist
+    add_lobby_stats_columns()
+    
+    # Then make sure voted_reset_stats column exists
+    add_voted_reset_stats_column()
     
     # Then create tables if they don't exist
     db.create_all()
@@ -264,13 +362,13 @@ with app.app_context():
         db.session.commit()
         logger.info("Admin user created with username 'admin' and password 'superboss'")
 
-@app.route('/')
+@application.route('/')
 def index():
     if 'username' in session:
         return redirect(url_for('lobbies'))
     return redirect(url_for('login'))
 
-@app.route('/login', methods=['GET', 'POST'])
+@application.route('/login', methods=['GET', 'POST'])
 def login():
     if request.method == 'POST':
         username = request.form.get('username')
@@ -293,7 +391,7 @@ def login():
     
     return render_template('login.html')
 
-@app.route('/register', methods=['GET', 'POST'])
+@application.route('/register', methods=['GET', 'POST'])
 def register():
     if request.method == 'POST':
         username = request.form.get('username')
@@ -328,7 +426,7 @@ def register():
     
     return render_template('register.html')
 
-@app.route('/home')
+@application.route('/home')
 def home():
     if 'username' not in session:
         flash('Please login first!', 'error')
@@ -348,14 +446,18 @@ def home():
         flash('An error occurred. Please try again.', 'error')
         return redirect(url_for('logout'))
 
-@app.route('/logout')
+@application.route('/rules')
+def rules():
+    return render_template('rules.html')
+
+@application.route('/logout')
 def logout():
     logout_user()
     session.clear()
     flash('You have been logged out!', 'success')
     return redirect(url_for('login'))
 
-@app.route('/status')
+@application.route('/status')
 def status():
     """A diagnostic route to check if database is connected"""
     try:
@@ -364,7 +466,7 @@ def status():
     except Exception as e:
         return f"Database connection failed: {e}"
 
-@app.route('/admin/dashboard')
+@application.route('/admin/dashboard')
 def admin_dashboard():
     """Admin dashboard - only accessible to admin users"""
     if not session.get('is_admin', False):
@@ -384,7 +486,7 @@ def admin_dashboard():
         flash('An error occurred while accessing admin dashboard.', 'error')
         return redirect(url_for('lobbies'))
 
-@app.route('/admin/users')
+@application.route('/admin/users')
 def admin_users():
     """Admin page to view all users - only accessible to admin users"""
     if not session.get('is_admin', False):
@@ -399,7 +501,7 @@ def admin_users():
         flash('An error occurred while retrieving users.', 'error')
         return redirect(url_for('admin_dashboard'))
 
-@app.route('/admin/user/<int:user_id>')
+@application.route('/admin/user/<int:user_id>')
 def admin_user_details(user_id):
     """Admin page to view details of a specific user"""
     if not session.get('is_admin', False):
@@ -418,7 +520,7 @@ def admin_user_details(user_id):
         flash('An error occurred while retrieving user details.', 'error')
         return redirect(url_for('admin_users'))
 
-@app.route('/admin/user/<int:user_id>/edit', methods=['GET', 'POST'])
+@application.route('/admin/user/<int:user_id>/edit', methods=['GET', 'POST'])
 def admin_edit_user(user_id):
     """Admin page to edit a user"""
     if not session.get('is_admin', False):
@@ -464,7 +566,7 @@ def admin_edit_user(user_id):
         flash('An error occurred while editing user.', 'error')
         return redirect(url_for('admin_users'))
 
-@app.route('/admin/user/<int:user_id>/delete', methods=['POST'])
+@application.route('/admin/user/<int:user_id>/delete', methods=['POST'])
 def admin_delete_user(user_id):
     """Admin action to delete a user"""
     if not session.get('is_admin', False):
@@ -486,7 +588,7 @@ def admin_delete_user(user_id):
         flash('An error occurred while deleting user.', 'error')
         return redirect(url_for('admin_users'))
 
-@app.route('/admin/lobbies')
+@application.route('/admin/lobbies')
 def admin_lobbies():
     """Admin page to view all lobbies - only accessible to admin users"""
     if not session.get('is_admin', False):
@@ -502,7 +604,7 @@ def admin_lobbies():
         flash('An error occurred while retrieving lobbies.', 'error')
         return redirect(url_for('admin_dashboard'))
 
-@app.route('/admin/lobby/<lobby_code>')
+@application.route('/admin/lobby/<lobby_code>')
 def admin_lobby_detail(lobby_code):
     """Admin page to view details of a specific lobby"""
     if not session.get('is_admin', False):
@@ -521,7 +623,7 @@ def admin_lobby_detail(lobby_code):
         flash('An error occurred while retrieving lobby details.', 'error')
         return redirect(url_for('admin_lobbies'))
 
-@app.route('/admin/lobby/<lobby_code>/delete', methods=['POST'])
+@application.route('/admin/lobby/<lobby_code>/delete', methods=['POST'])
 def admin_delete_lobby(lobby_code):
     """Admin action to delete a lobby"""
     if not session.get('is_admin', False):
@@ -556,7 +658,7 @@ def admin_delete_lobby(lobby_code):
         return redirect(url_for('admin_lobbies'))
 
 # Lobby Routes
-@app.route('/lobbies')
+@application.route('/lobbies')
 def lobbies():
     """View available lobbies or create/join one"""
     if 'username' not in session:
@@ -566,6 +668,13 @@ def lobbies():
     try:
         username = session['username']
         user = User.query.filter_by(username=username).first()
+        
+        # Check for game completion message
+        if username in game_completion_messages:
+            message_data = game_completion_messages[username]
+            flash(message_data['message'], message_data['type'])
+            # Remove the message after displaying it
+            del game_completion_messages[username]
         
         # Get lobbies the user is in
         user_lobbies = []
@@ -598,7 +707,7 @@ def lobbies():
         flash('An error occurred. Please try again.', 'error')
         return redirect(url_for('login'))
 
-@app.route('/lobby/create', methods=['POST'])
+@application.route('/lobby/create', methods=['POST'])
 def create_lobby():
     """Create a new lobby"""
     if 'username' not in session:
@@ -666,7 +775,7 @@ def create_lobby():
         flash('An error occurred while creating lobby. Please try again.', 'error')
         return redirect(url_for('lobbies'))
 
-@app.route('/lobby/join', methods=['POST'])
+@application.route('/lobby/join', methods=['POST'])
 def join_lobby():
     """Join an existing lobby using a code"""
     if 'username' not in session:
@@ -756,7 +865,7 @@ def join_lobby():
         flash('An error occurred while joining lobby. Please try again.', 'error')
         return redirect(url_for('lobbies'))
 
-@app.route('/lobby/<lobby_code>')
+@application.route('/lobby/<lobby_code>')
 def lobby_detail(lobby_code):
     """View lobby details and players"""
     if 'username' not in session:
@@ -791,7 +900,7 @@ def lobby_detail(lobby_code):
         flash('An error occurred. Please try again.', 'error')
         return redirect(url_for('lobbies'))
 
-@app.route('/lobby/<lobby_code>/leave', methods=['POST'])
+@application.route('/lobby/<lobby_code>/leave', methods=['POST'])
 def leave_lobby(lobby_code):
     """Leave a lobby"""
     if 'username' not in session:
@@ -893,7 +1002,7 @@ def leave_lobby(lobby_code):
         flash('An error occurred while leaving lobby. Please try again.', 'error')
         return redirect(url_for('lobbies'))
 
-@app.route('/lobby/<lobby_code>/start', methods=['POST'])
+@application.route('/lobby/<lobby_code>/start', methods=['POST'])
 def start_game(lobby_code):
     """Start the game and redirect players to the game page"""
     if 'username' not in session:
@@ -954,7 +1063,7 @@ def start_game(lobby_code):
         flash('An error occurred while starting game. Please try again.', 'error')
         return redirect(url_for('lobby_detail', lobby_code=lobby_code))
 
-@app.route('/lobby/<lobby_code>/change_team', methods=['POST'])
+@application.route('/lobby/<lobby_code>/change_team', methods=['POST'])
 def change_team(lobby_code):
     """Change a player's team in the lobby"""
     if 'username' not in session:
@@ -995,8 +1104,9 @@ def change_team(lobby_code):
         # If joining a team, check if it's full
         if new_team in [1, 2]:
             team_players = lobby.team1_players if new_team == 1 else lobby.team2_players
+            team_name = "Team Purple" if new_team == 1 else "Team Black"
             if len(team_players) >= 2:
-                flash(f'Team {new_team} is already full!', 'error')
+                flash(f'{team_name} is already full!', 'error')
                 return redirect(url_for('lobby_detail', lobby_code=lobby_code))
         
         # Update team
@@ -1015,7 +1125,8 @@ def change_team(lobby_code):
         if new_team == 0:
             flash('You left your team and are now unassigned.', 'success')
         else:
-            flash(f'You joined Team {new_team}!', 'success')
+            team_name = "Team Purple" if new_team == 1 else "Team Black"
+            flash(f'You joined {team_name}!', 'success')
         return redirect(url_for('lobby_detail', lobby_code=lobby_code))
     except Exception as e:
         logger.error(f"Error changing team: {e}")
@@ -1023,15 +1134,113 @@ def change_team(lobby_code):
         flash('An error occurred while changing team. Please try again.', 'error')
         return redirect(url_for('lobby_detail', lobby_code=lobby_code))
 
-@app.route('/game/<lobby_code>')
+@application.route('/lobby/<lobby_code>/vote_reset_stats', methods=['POST'])
+def vote_reset_stats(lobby_code):
+    """Vote to reset lobby statistics"""
+    if 'username' not in session:
+        flash('Please login first!', 'error')
+        return redirect(url_for('login'))
+    
+    try:
+        username = session['username']
+        user = User.query.filter_by(username=username).first()
+        
+        # Get lobby
+        lobby = Lobby.query.filter_by(code=lobby_code, is_active=True).first()
+        if not lobby:
+            flash('Lobby not found or no longer active!', 'error')
+            return redirect(url_for('lobbies'))
+        
+        # Check if user is in this lobby
+        lobby_player = LobbyPlayer.query.filter_by(lobby_id=lobby.id, user_id=user.id).first()
+        if not lobby_player:
+            flash('You are not a member of this lobby!', 'error')
+            return redirect(url_for('lobbies'))
+        
+        # Toggle vote
+        lobby_player.voted_reset_stats = not lobby_player.voted_reset_stats
+        db.session.commit()
+        
+        # Get all players and vote count
+        all_players = LobbyPlayer.query.filter_by(lobby_id=lobby.id).all()
+        votes_count = sum(1 for p in all_players if p.voted_reset_stats)
+        
+        # Always emit vote update to all players in lobby
+        vote_status = {
+            'votes_count': votes_count,
+            'total_needed': 4,
+            'voters': [p.user.username for p in all_players if p.voted_reset_stats],
+            'total_players': len(all_players)
+        }
+        socketio.emit('reset_vote_update', vote_status, room=lobby_code)
+        
+        # Check if we have 4 players and all voted
+        if len(all_players) == 4 and votes_count == 4:
+            # All players voted - reset statistics
+            lobby.team1_wins = 0
+            lobby.team2_wins = 0
+            lobby.total_games_played = 0
+            lobby.next_game_multiplier = 1
+            
+            # Reset all votes
+            for player in all_players:
+                player.voted_reset_stats = False
+            
+            db.session.commit()
+            
+            # Emit event to all players in lobby
+            socketio.emit('stats_reset', {
+                'message': 'Lobby statistics have been reset!',
+                'team1_wins': 0,
+                'team2_wins': 0,
+                'total_games_played': 0,
+                'next_game_multiplier': 1
+            }, room=lobby_code)
+            
+            flash('Statistics have been reset successfully!', 'success')
+        else:
+            # Provide feedback to the user who voted
+            if lobby_player.voted_reset_stats:
+                if len(all_players) == 4:
+                    flash(f'You voted to reset statistics! ({votes_count}/4 votes)', 'info')
+                else:
+                    flash(f'You voted to reset statistics! Need 4 players in lobby first. ({len(all_players)}/4 players)', 'warning')
+            else:
+                flash('You withdrew your vote to reset statistics.', 'info')
+        
+        return redirect(url_for('lobby_detail', lobby_code=lobby_code))
+        
+    except Exception as e:
+        logger.error(f"Error voting for stats reset: {e}")
+        db.session.rollback()
+        flash('An error occurred while voting. Please try again.', 'error')
+        return redirect(url_for('lobby_detail', lobby_code=lobby_code))
+
+@application.route('/game/<lobby_code>')
 @login_required
 def game_page(lobby_code):
     lobby = Lobby.query.filter_by(code=lobby_code).first_or_404()
-    return render_template('game_placeholder.html', 
+    
+    # Check if the game has actually started
+    if not lobby.game_started:
+        flash('The game has not been started yet. Please wait for the lobby owner to start the game.', 'warning')
+        return redirect(url_for('lobby_detail', lobby_code=lobby_code))
+    
+    # Check if user is a member of this lobby
+    username = session.get('username')
+    if username:
+        user = User.query.filter_by(username=username).first()
+        if user:
+            lobby_player = LobbyPlayer.query.filter_by(lobby_id=lobby.id, user_id=user.id).first()
+            if not lobby_player:
+                flash('You are not a member of this lobby!', 'error')
+                return redirect(url_for('lobbies'))
+    
+    return render_template('game.html', 
                          lobby=lobby,
                          current_user=current_user)  # Flask-Login makes current_user available automatically
 
-@app.route('/game/<lobby_code>/leave', methods=['POST'])
+@application.route('/game/<lobby_code>/leave', methods=['POST'])
 def leave_game(lobby_code):
     """Leave a game and the associated lobby"""
     if 'username' not in session:
@@ -1206,22 +1415,32 @@ def handle_initialize_game(data):
     """Initialize the game state when a player joins"""
     lobby_code = data.get('lobby_code')
     
+    # Get the lobby and check if game has started
+    lobby = Lobby.query.filter_by(code=lobby_code).first()
+    if not lobby or not lobby.game_started:
+        emit('error', {'message': 'Game has not been started yet'})
+        return
+    
     # Create new game if it doesn't exist
     if lobby_code not in games:
-        games[lobby_code] = SepticaGame()
-    
-    # Get the lobby and player information
-    lobby = Lobby.query.filter_by(code=lobby_code).first()
-    if not lobby:
-        return
+        # Calculate starting player based on actual games played (not points won)
+        starting_player = SepticaGame.calculate_starting_player(lobby.total_games_played)
+        games[lobby_code] = SepticaGame(starting_player)
     
     username = session.get('username')
     user = User.query.filter_by(username=username).first()
     if not user:
+        emit('error', {'message': 'User not found'})
         return
     
-    # Find player's position based on join order and team assignment
-    lobby_players = LobbyPlayer.query.filter_by(lobby_id=lobby.id).order_by(LobbyPlayer.team, LobbyPlayer.joined_at).all()
+    # Check if user is a member of this lobby
+    lobby_player = LobbyPlayer.query.filter_by(lobby_id=lobby.id, user_id=user.id).first()
+    if not lobby_player:
+        emit('error', {'message': 'You are not a member of this lobby'})
+        return
+    
+    # Get players ordered properly for game (Team Purple: positions 0,2; Team Black: positions 1,3)
+    lobby_players = get_ordered_players(lobby.id)
     player_position = next((i for i, lp in enumerate(lobby_players) if lp.user_id == user.id), None)
     
     if player_position is not None:
@@ -1229,10 +1448,16 @@ def handle_initialize_game(data):
         player_room = f"{lobby_code}_player_{player_position}"
         join_room(player_room)
         
+        # Get player names in order
+        player_names = []
+        for lp in lobby_players:
+            player_names.append(lp.user.username)
+        
         # Get and send initial game state to player
         game_state = games[lobby_code].get_game_state(player_position)
         game_state['position'] = player_position  # Add player position to game state
         game_state['username'] = username  # Add username to game state
+        game_state['player_names'] = player_names  # Add all player names
         
         emit('game_state_update', game_state)
 
@@ -1240,6 +1465,153 @@ def handle_initialize_game(data):
 def handle_play_card(data):
     lobby_code = data.get('lobby_code')
     card_index = data.get('card_index')
+    
+    # Get the lobby and check if game has started
+    lobby = Lobby.query.filter_by(code=lobby_code).first()
+    if not lobby or not lobby.game_started:
+        emit('error', {'message': 'Game has not been started yet'})
+        return
+    
+    if lobby_code not in games:
+        emit('error', {'message': 'Game not found'})
+        return
+        
+    # Get player position
+    username = session.get('username')
+    user = User.query.filter_by(username=username).first()
+    if not user:
+        emit('error', {'message': 'User not found'})
+        return
+    
+    # Check if user is a member of this lobby
+    lobby_player = LobbyPlayer.query.filter_by(lobby_id=lobby.id, user_id=user.id).first()
+    if not lobby_player:
+        emit('error', {'message': 'You are not a member of this lobby'})
+        return
+    
+    # Get players ordered properly for game (Team Purple: positions 0,2; Team Black: positions 1,3)
+    lobby_players = get_ordered_players(lobby.id)
+    player_position = next((i for i, lp in enumerate(lobby_players) if lp.user_id == user.id), None)
+    
+    if player_position is None:
+        return
+    
+    # Get player names in order
+    player_names = []
+    for lp in lobby_players:
+        player_names.append(lp.user.username)
+        
+    # Play the card
+    success, error = games[lobby_code].play_card(player_position, card_index)
+    
+    if success:
+        # Broadcast updated game state to all players
+        for i, _ in enumerate(lobby_players):
+            game_state = games[lobby_code].get_game_state(i)
+            game_state['position'] = i
+            game_state['player_names'] = player_names
+            emit('game_state_update', game_state, room=f"{lobby_code}_player_{i}")
+    else:
+        emit('game_error', {'message': error})
+
+def handle_game_completion(lobby_code, lobby, lobby_players):
+    """Handle game completion - update lobby stats and notify players"""
+    game = games[lobby_code]
+    
+    if not game.is_game_finished():
+        return False
+    
+    # Get game result
+    result = game.get_game_result()
+    winner_team = result['winner']
+    is_tie = result['is_tie']
+    scores = result['scores']
+    hands_won = result['hands_won']
+    
+    # Increment total games played regardless of outcome
+    lobby.total_games_played += 1
+    
+    # Update lobby statistics
+    if is_tie:
+        # Set multiplier for next game (max 2)
+        lobby.next_game_multiplier = 2
+        notification_message = f"Game ended in a tie! ({scores[0]}-{scores[1]}) Next game is worth 2 points."
+        notification_type = "info"
+    else:
+        # Check if it's a perfect game (losing team won zero hands)
+        is_perfect_game = (hands_won[0] == 0 and winner_team == 1) or (hands_won[1] == 0 and winner_team == 0)
+        
+        # Award points to winning team
+        points_awarded = lobby.next_game_multiplier
+        if is_perfect_game:
+            points_awarded += 1  # Bonus point for perfect game
+        
+        if winner_team == 0:
+            lobby.team1_wins += points_awarded
+            team_name = "Team Purple"
+        else:
+            lobby.team2_wins += points_awarded
+            team_name = "Team Black"
+        
+        # Reset multiplier
+        lobby.next_game_multiplier = 1
+        
+        # Create notification message
+        if is_perfect_game:
+            notification_message = f"{team_name} wins PERFECTLY! ({scores[0]}-{scores[1]}, opponent won 0 hands) +{points_awarded} points awarded (including bonus for shutout)."
+        else:
+            notification_message = f"{team_name} wins! ({scores[0]}-{scores[1]}) +{points_awarded} points awarded."
+        notification_type = "success"
+    
+    # Save lobby changes
+    db.session.commit()
+    
+    # Store completion message for all players in this lobby
+    completion_message = f"{notification_message} Lobby Stats: Team Purple: {lobby.team1_wins} wins - Team Black: {lobby.team2_wins} wins"
+    
+    # Store message for each player
+    for lp in lobby_players:
+        game_completion_messages[lp.user.username] = {
+            'message': completion_message,
+            'type': notification_type,
+            'lobby_code': lobby_code
+        }
+    
+    # Reset lobby game status
+    lobby.game_started = False
+    db.session.commit()
+    
+    # Remove game from active games
+    del games[lobby_code]
+    
+    # Prepare game completion data
+    completion_data = {
+        'game_finished': True,
+        'winner_team': winner_team,
+        'is_tie': is_tie,
+        'scores': scores,
+        'lobby_stats': {
+            'team1_wins': lobby.team1_wins,
+            'team2_wins': lobby.team2_wins,
+            'next_game_multiplier': lobby.next_game_multiplier
+        },
+        'message': completion_message,
+        'notification_type': notification_type
+    }
+    
+    # Notify all players and set flash message for each
+    for i, lp in enumerate(lobby_players):
+        # Send the completion notification via SocketIO
+        emit('game_completed', completion_data, room=f"{lobby_code}_player_{i}")
+    
+    # Also emit to the general lobby room
+    emit('game_completed', completion_data, room=lobby_code)
+    
+    return True
+
+@socketio.on('take_hand')
+def handle_take_hand(data):
+    lobby_code = data.get('lobby_code')
     
     if lobby_code not in games:
         return
@@ -1249,38 +1621,77 @@ def handle_play_card(data):
     username = session.get('username')
     user = User.query.filter_by(username=username).first()
     
-    lobby_players = LobbyPlayer.query.filter_by(lobby_id=lobby.id).order_by(LobbyPlayer.joined_at).all()
+    # Get players ordered properly for game (Team Purple: positions 0,2; Team Black: positions 1,3)
+    lobby_players = get_ordered_players(lobby.id)
     player_position = next((i for i, lp in enumerate(lobby_players) if lp.user_id == user.id), None)
     
     if player_position is None:
         return
+    
+    # Get player names in order
+    player_names = []
+    for lp in lobby_players:
+        player_names.append(lp.user.username)
         
-    # Play the card
-    success, error = games[lobby_code].play_card(player_position, card_index)
+    # Take the hand
+    success, error = games[lobby_code].take_hand()
     
     if success:
+        # Check if game is finished
+        if handle_game_completion(lobby_code, lobby, lobby_players):
+            return  # Game completed, notifications already sent
+        
         # Broadcast updated game state to all players
         for i, _ in enumerate(lobby_players):
             game_state = games[lobby_code].get_game_state(i)
+            game_state['position'] = i
+            game_state['player_names'] = player_names
+            emit('game_state_update', game_state, room=f"{lobby_code}_player_{i}")
+    else:
+        emit('game_error', {'message': error})
+
+@socketio.on('forfeit_hand')
+def handle_forfeit_hand(data):
+    lobby_code = data.get('lobby_code')
+    
+    if lobby_code not in games:
+        return
+        
+    # Get player position
+    lobby = Lobby.query.filter_by(code=lobby_code).first()
+    username = session.get('username')
+    user = User.query.filter_by(username=username).first()
+    
+    # Get players ordered properly for game (Team Purple: positions 0,2; Team Black: positions 1,3)
+    lobby_players = get_ordered_players(lobby.id)
+    player_position = next((i for i, lp in enumerate(lobby_players) if lp.user_id == user.id), None)
+    
+    if player_position is None:
+        return
+    
+    # Get player names in order
+    player_names = []
+    for lp in lobby_players:
+        player_names.append(lp.user.username)
+        
+    # Forfeit the hand
+    success, error = games[lobby_code].forfeit_hand()
+    
+    if success:
+        # Check if game is finished
+        if handle_game_completion(lobby_code, lobby, lobby_players):
+            return  # Game completed, notifications already sent
+        
+        # Broadcast updated game state to all players
+        for i, _ in enumerate(lobby_players):
+            game_state = games[lobby_code].get_game_state(i)
+            game_state['position'] = i
+            game_state['player_names'] = player_names
             emit('game_state_update', game_state, room=f"{lobby_code}_player_{i}")
     else:
         emit('game_error', {'message': error})
 
 # Update the run statement to use SocketIO
-if __name__ == '__main__':
-    import argparse
-
-    # Add argument parsing
-    parser = argparse.ArgumentParser(description="Run the Flask app.")
-    parser.add_argument('--host-all', action='store_true', help="Bind the Flask app to 0.0.0.0 for external access.")
-    parser.add_argument('--host', default='127.0.0.1', help="Specify the host to bind the Flask app.")
-    parser.add_argument('--port', type=int, default=5000, help="Specify the port to run the Flask app.")
-
-    args = parser.parse_args()
-
-    if args.host_all:
-        # Run the app on 0.0.0.0 if --host-all is passed
-        socketio.run(app, host='0.0.0.0', port=args.port, debug=False)
-    else:
-        # Use the specified host and port
-        socketio.run(app, host=args.host, port=args.port, debug=True)
+if __name__ == "__main__":
+    # Local development only
+    socketio.run(application, host="0.0.0.0", port=5000, debug=True)

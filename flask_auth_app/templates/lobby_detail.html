@@ -41,9 +41,9 @@
                     <!-- Teams Section -->
                     <div class="row mb-4">
                         <div class="col-md-6 mb-4 mb-md-0">
-                            <div class="card bg-primary text-white">
+                            <div class="card text-white" style="background-color: #6f42c1;">  <!-- Team Purple -->
                                 <div class="card-header">
-                                    <h5 class="mb-0"><i class="fas fa-users me-2"></i> Team 1 (<span id="team1-count">{{ lobby.team1_players|length }}</span>/2)</h5>
+                                    <h5 class="mb-0"><i class="fas fa-users me-2"></i> Team Purple (<span id="team1-count">{{ lobby.team1_players|length }}</span>/2)</h5>
                                 </div>
                                 <ul class="list-group list-group-flush" id="team1-list">
                                     {% for player in lobby.team1_players %}
@@ -52,16 +52,16 @@
                                                 <i class="fas fa-user me-2"></i>
                                                 <span class="fw-bold">{{ player.user.username }}</span>
                                             </div>
-                                            <div>
+                                            <div class="d-flex align-items-center flex-wrap">
                                                 {% if player.user.id == lobby.owner_id %}
-                                                    <span class="badge bg-warning text-dark">
+                                                    <span class="badge bg-warning text-dark me-2 mb-1">
                                                         <i class="fas fa-crown me-1"></i> Owner
                                                     </span>
                                                 {% endif %}
                                                 {% if player.user.id == user.id %}
                                                     <form method="POST" action="{{ url_for('change_team', lobby_code=lobby.code) }}" class="d-inline">
                                                         <input type="hidden" name="team" value="0">
-                                                        <button type="submit" class="btn btn-sm btn-outline-secondary ms-2 team-leave-btn">
+                                                        <button type="submit" class="btn btn-sm btn-outline-secondary team-leave-btn mb-1">
                                                             Leave Team
                                                         </button>
                                                     </form>
@@ -69,15 +69,15 @@
                                             </div>
                                         </li>
                                     {% else %}
-                                        <li class="list-group-item text-muted">No players in Team 1</li>
+                                        <li class="list-group-item text-muted">No players in Team Purple</li>
                                     {% endfor %}
                                 </ul>
                             </div>
                         </div>
                         <div class="col-md-6">
-                            <div class="card bg-danger text-white">
+                            <div class="card text-white" style="background-color: #5e5e5e;">  <!-- Team Black -->
                                 <div class="card-header">
-                                    <h5 class="mb-0"><i class="fas fa-users me-2"></i> Team 2 (<span id="team2-count">{{ lobby.team2_players|length }}</span>/2)</h5>
+                                    <h5 class="mb-0"><i class="fas fa-users me-2"></i> Team Black (<span id="team2-count">{{ lobby.team2_players|length }}</span>/2)</h5>
                                 </div>
                                 <ul class="list-group list-group-flush" id="team2-list">
                                     {% for player in lobby.team2_players %}
@@ -86,16 +86,16 @@
                                                 <i class="fas fa-user me-2"></i>
                                                 <span class="fw-bold">{{ player.user.username }}</span>
                                             </div>
-                                            <div>
+                                            <div class="d-flex align-items-center flex-wrap">
                                                 {% if player.user.id == lobby.owner_id %}
-                                                    <span class="badge bg-warning text-dark">
+                                                    <span class="badge bg-warning text-dark me-2 mb-1">
                                                         <i class="fas fa-crown me-1"></i> Owner
                                                     </span>
                                                 {% endif %}
                                                 {% if player.user.id == user.id %}
                                                     <form method="POST" action="{{ url_for('change_team', lobby_code=lobby.code) }}" class="d-inline">
                                                         <input type="hidden" name="team" value="0">
-                                                        <button type="submit" class="btn btn-sm btn-outline-secondary ms-2 team-leave-btn">
+                                                        <button type="submit" class="btn btn-sm btn-outline-secondary team-leave-btn mb-1">
                                                             Leave Team
                                                         </button>
                                                     </form>
@@ -103,7 +103,7 @@
                                             </div>
                                         </li>
                                     {% else %}
-                                        <li class="list-group-item text-muted">No players in Team 2</li>
+                                        <li class="list-group-item text-muted">No players in Team Black</li>
                                     {% endfor %}
                                 </ul>
                             </div>
@@ -133,13 +133,13 @@
                                                 <form method="POST" action="{{ url_for('change_team', lobby_code=lobby.code) }}" class="d-inline">
                                                     <input type="hidden" name="team" value="1">
                                                     <button type="submit" class="btn btn-sm btn-outline-primary team-join-btn" {% if lobby.team1_players|length >= 2 %}disabled{% endif %}>
-                                                        Join Team 1
+                                                        Join Team Purple
                                                     </button>
                                                 </form>
                                                 <form method="POST" action="{{ url_for('change_team', lobby_code=lobby.code) }}" class="d-inline ms-1">
                                                     <input type="hidden" name="team" value="2">
                                                     <button type="submit" class="btn btn-sm btn-outline-danger team-join-btn" {% if lobby.team2_players|length >= 2 %}disabled{% endif %}>
-                                                        Join Team 2
+                                                        Join Team Black
                                                     </button>
                                                 </form>
                                             </div>
@@ -208,6 +208,19 @@
                         </ul>
                     </div>
                     
+                    <!-- Next Game Starter Information -->
+                    {% set starter_info = lobby.get_next_starter_info() %}
+                    {% if starter_info.can_show %}
+                        <div class="alert alert-success mb-3">
+                            <h5><i class="fas fa-play me-2"></i> Next Game Starter:</h5>
+                            <div class="text-center">
+                                <span class="badge px-3 py-2" style="background-color: {% if starter_info.team_name == 'Purple' %}#6f42c1{% else %}#5e5e5e{% endif %}; color: white; font-size: 0.9rem;">
+                                    {{ starter_info.username }}
+                                </span>
+                            </div>
+                        </div>
+                    {% endif %}
+                    
                     {% if is_owner %}
                         <div class="alert alert-warning" id="owner-alert">
                             <strong>You are the lobby owner!</strong>
@@ -221,6 +234,77 @@
                 </div>
                 <div class="card-footer">
                     <a href="{{ url_for('lobbies') }}" class="btn btn-secondary">Back to Lobbies</a>
+                </div>
+            </div>
+            
+            <div class="card shadow mt-3">
+                <div class="card-header bg-success text-white">
+                    <h5 class="mb-0"><i class="fas fa-trophy me-2"></i>Lobby Statistics</h5>
+                </div>
+                <div class="card-body">
+                    <div class="row text-center">
+                        <div class="col-4">
+                            <h3 class="mb-1" style="color: #6f42c1;">{{ lobby.team1_wins }}</h3>
+                            <small class="text-muted">Team Purple Points</small>
+                        </div>
+                        <div class="col-4">
+                            <h3 class="mb-1" style="color: #212529;">{{ lobby.team2_wins }}</h3>
+                            <small class="text-muted">Team Black Points</small>
+                        </div>
+                        <div class="col-4">
+                            <h3 class="mb-1" style="color: #6c757d;">{{ lobby.total_games_played }}</h3>
+                            <small class="text-muted">Total Games</small>
+                        </div>
+                    </div>
+                    {% if lobby.next_game_multiplier > 1 %}
+                        <div class="alert alert-warning mt-3 mb-0">
+                            <i class="fas fa-star me-2"></i>
+                            <strong>Next game is worth {{ lobby.next_game_multiplier }} points!</strong>
+                            <br><small>Due to previous tie game(s)</small>
+                        </div>
+                    {% endif %}
+                    
+                    <!-- Reset Statistics Voting Section -->
+                    <div class="mt-3" id="reset-stats-section">
+                        <div class="d-flex justify-content-between align-items-center">
+                            <small class="text-muted">Reset Statistics</small>
+                            <form method="POST" action="{{ url_for('vote_reset_stats', lobby_code=lobby.code) }}" style="display: inline;">
+                                {% set current_user_player = lobby.players|selectattr('user_id', 'equalto', user.id)|first %}
+                                {% set current_user_voted = current_user_player.voted_reset_stats if current_user_player else False %}
+                                {% set total_votes = lobby.players|selectattr('voted_reset_stats', 'equalto', True)|list|length %}
+                                
+                                <button type="submit" class="btn btn-sm {{ 'btn-warning' if current_user_voted else 'btn-outline-warning' }}" id="vote-reset-btn">
+                                    <i class="fas fa-vote-yea me-1"></i>
+                                    {{ 'Withdraw Vote' if current_user_voted else 'Vote Reset' }}
+                                    ({{ total_votes }}/4)
+                                </button>
+                            </form>
+                        </div>
+                        
+                        {% if total_votes > 0 %}
+                            <div class="mt-2" id="voters-list">
+                                <small class="text-muted">
+                                    Voted: 
+                                    {% for player in lobby.players %}
+                                        {% if player.voted_reset_stats %}
+                                            <span class="badge bg-warning text-dark me-1">{{ player.user.username }}</span>
+                                        {% endif %}
+                                    {% endfor %}
+                                </small>
+                            </div>
+                        {% endif %}
+                        
+                        {% if total_votes == 4 %}
+                            <div class="alert alert-success mt-2 mb-0" id="success-alert">
+                                <i class="fas fa-check me-2"></i>
+                                All players voted! Statistics will be reset.
+                            </div>
+                        {% elif total_votes > 0 %}
+                            <div class="progress mt-2" style="height: 5px;" id="vote-progress">
+                                <div class="progress-bar bg-warning" role="progressbar" style="width: {{ (total_votes / 4) * 100 }}%" id="vote-progress-bar"></div>
+                            </div>
+                        {% endif %}
+                    </div>
                 </div>
             </div>
             
@@ -496,13 +580,13 @@ function addUnassignedPlayer(playerData) {
                 <form method="POST" action="/lobby/${lobbyCode}/change_team" class="d-inline">
                     <input type="hidden" name="team" value="1">
                     <button type="submit" class="btn btn-sm btn-outline-primary team-join-btn" ${team1Disabled}>
-                        Join Team 1
+                        Join Team Purple
                     </button>
                 </form>
                 <form method="POST" action="/lobby/${lobbyCode}/change_team" class="d-inline ms-1">
                     <input type="hidden" name="team" value="2">
                     <button type="submit" class="btn btn-sm btn-outline-danger team-join-btn" ${team2Disabled}>
-                        Join Team 2
+                        Join Team Black
                     </button>
                 </form>
             </div>
@@ -614,7 +698,7 @@ socket.on('owner_changed', function(data) {
         `;
         
         // Add owner badge to the new owner in all lists
-        // Check in team 1
+        // Check in team purple
         const team1NewOwner = document.querySelector(`.team-player-item[data-user-id="${data.new_owner_id}"][data-team="1"]`);
         if (team1NewOwner) {
             const badgeContainer = team1NewOwner.querySelector('div:nth-child(2)');
@@ -623,7 +707,7 @@ socket.on('owner_changed', function(data) {
             }
         }
         
-        // Check in team 2
+        // Check in team black
         const team2NewOwner = document.querySelector(`.team-player-item[data-user-id="${data.new_owner_id}"][data-team="2"]`);
         if (team2NewOwner) {
             const badgeContainer = team2NewOwner.querySelector('div:nth-child(2)');
@@ -781,5 +865,128 @@ function copyLobbyCode() {
             console.error('Could not copy text: ', err);
         });
 }
+
+// Handle reset vote updates
+socket.on('reset_vote_update', function(data) {
+    logActivity(`Vote update: ${data.votes_count}/${data.total_needed} players voted to reset statistics`);
+    
+    // Update the button text and vote count
+    const voteButton = document.getElementById('vote-reset-btn');
+    if (voteButton) {
+        const currentUsername = '{{ user.username }}';
+        const isCurrentUserVoted = data.voters.includes(currentUsername);
+        
+        voteButton.innerHTML = `
+            <i class="fas fa-vote-yea me-1"></i>
+            ${isCurrentUserVoted ? 'Withdraw Vote' : 'Vote Reset'}
+            (${data.votes_count}/4)
+        `;
+        
+        voteButton.className = isCurrentUserVoted ? 'btn btn-sm btn-warning' : 'btn btn-sm btn-outline-warning';
+    }
+    
+    // Update voters list
+    const votersContainer = document.getElementById('voters-list');
+    if (data.voters.length > 0) {
+        const badgesHtml = data.voters.map(voter => 
+            `<span class="badge bg-warning text-dark me-1">${voter}</span>`
+        ).join('');
+        
+        if (votersContainer) {
+            votersContainer.innerHTML = `<small class="text-muted">Voted: ${badgesHtml}</small>`;
+            votersContainer.style.display = 'block';
+        } else {
+            // Create voters list if it doesn't exist
+            const resetSection = document.getElementById('reset-stats-section');
+            const newVotersDiv = document.createElement('div');
+            newVotersDiv.id = 'voters-list';
+            newVotersDiv.className = 'mt-2';
+            newVotersDiv.innerHTML = `<small class="text-muted">Voted: ${badgesHtml}</small>`;
+            resetSection.querySelector('.d-flex').parentNode.insertBefore(newVotersDiv, resetSection.querySelector('.d-flex').nextSibling);
+        }
+    } else if (votersContainer) {
+        votersContainer.style.display = 'none';
+    }
+    
+    // Update progress bar
+    const progressBar = document.getElementById('vote-progress-bar');
+    const progressContainer = document.getElementById('vote-progress');
+    const successAlert = document.getElementById('success-alert');
+    
+    if (data.votes_count === data.total_needed && data.total_players === 4) {
+        // Show success message
+        if (progressContainer) progressContainer.style.display = 'none';
+        
+        if (!successAlert) {
+            const resetSection = document.getElementById('reset-stats-section');
+            const newAlert = document.createElement('div');
+            newAlert.id = 'success-alert';
+            newAlert.className = 'alert alert-success mt-2 mb-0';
+            newAlert.innerHTML = `
+                <i class="fas fa-check me-2"></i>
+                All players voted! Statistics will be reset.
+            `;
+            resetSection.appendChild(newAlert);
+        } else {
+            successAlert.style.display = 'block';
+        }
+    } else if (data.votes_count > 0) {
+        // Show progress bar
+        if (successAlert) successAlert.style.display = 'none';
+        
+        const percentage = (data.votes_count / data.total_needed) * 100;
+        
+        if (progressBar && progressContainer) {
+            progressBar.style.width = `${percentage}%`;
+            progressContainer.style.display = 'block';
+        } else if (!progressContainer) {
+            // Create progress bar if it doesn't exist
+            const resetSection = document.getElementById('reset-stats-section');
+            const newProgress = document.createElement('div');
+            newProgress.id = 'vote-progress';
+            newProgress.className = 'progress mt-2';
+            newProgress.style.height = '5px';
+            newProgress.innerHTML = `
+                <div class="progress-bar bg-warning" role="progressbar" style="width: ${percentage}%" id="vote-progress-bar"></div>
+            `;
+            resetSection.appendChild(newProgress);
+        }
+    } else {
+        // Hide both progress and success
+        if (progressContainer) progressContainer.style.display = 'none';
+        if (successAlert) successAlert.style.display = 'none';
+    }
+});
+
+// Handle statistics reset
+socket.on('stats_reset', function(data) {
+    logActivity(data.message);
+    
+    // Update statistics display
+    const team1Wins = document.querySelector('.text-primary');
+    const team2Wins = document.querySelector('.text-danger');
+    
+    if (team1Wins) team1Wins.textContent = '0';
+    if (team2Wins) team2Wins.textContent = '0';
+    
+    // Reset all vote-related UI
+    const voteButton = document.getElementById('vote-reset-btn');
+    if (voteButton) {
+        voteButton.innerHTML = `
+            <i class="fas fa-vote-yea me-1"></i>
+            Vote Reset (0/4)
+        `;
+        voteButton.className = 'btn btn-sm btn-outline-warning';
+    }
+    
+    // Hide voters list and progress bar
+    const votersContainer = document.getElementById('voters-list');
+    const progressContainer = document.getElementById('vote-progress');
+    const successAlert = document.getElementById('success-alert');
+    
+    if (votersContainer) votersContainer.style.display = 'none';
+    if (progressContainer) progressContainer.style.display = 'none';
+    if (successAlert) successAlert.style.display = 'none';
+});
 </script>
 {% endblock %}

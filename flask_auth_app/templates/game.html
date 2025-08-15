@@ -1,180 +1,568 @@
 {% extends "base.html" %}
 
-{% block title %}Playing Game - Șeptică{% endblock %}
+{% block title %}Game - Șeptică{% endblock %}
 
 {% block content %}
 <div class="container-fluid animate-fade-in">
+    <input type="hidden" id="lobby-code" value="{{ lobby.code }}">
+    
+    <!-- Main Game Area -->
     <div class="row">
-        <div class="col-12">
-            <h1 class="page-title text-center mb-4">Șeptică - Game Room</h1>
-            
-            <div class="card game-card mb-4">
+        <!-- Left Side - Game Board -->
+        <div class="col-lg-9">
+            <div class="card shadow mb-4">
                 <div class="card-header">
-                    <div class="d-flex justify-content-between align-items-center">
-                        <div>
-                            <i class="fas fa-gamepad me-2"></i> Game #{{ game.id }}
-                        </div>
-                        <div>
-                            <span class="badge bg-success me-2">
-                                <i class="fas fa-clock me-1"></i> Round {{ game.current_round }}
-                            </span>
-                            <span class="badge bg-primary">
-                                <i class="fas fa-trophy me-1"></i> Score: {{ current_player.score }}
-                            </span>
-                        </div>
-                    </div>
+                    <h5 class="mb-0">
+                        <i class="fas fa-chess-board me-2"></i>Game Table
+                    </h5>
                 </div>
                 <div class="card-body">
-                    <!-- Game table -->
-                    <div class="game-table">
-                        <div class="center-pile">
-                            <!-- Center pile cards will go here -->
-                        </div>
-                        
-                        <!-- Player positions -->
-                        <div class="player-position position-1">
-                            <div class="player-avatar">
-                                {{ current_player.username[0] }}
+                    <!-- Game Info Row -->
+                    <div class="row mb-4">
+                        <div class="col-md-6 mb-3 mb-md-0">
+                            <div class="card text-white bg-info">
+                                <div class="card-header py-2">
+                                    <h6 class="mb-0">
+                                        <i class="fas fa-crown me-2"></i>Hand Owner
+                                    </h6>
+                                </div>
+                                <div class="card-body text-center py-2">
+                                    <span id="hand-owner-display" class="fw-bold badge fs-6 py-2 px-3">None</span>
+                                </div>
                             </div>
                         </div>
-                        <div class="player-position position-2">
-                            <div class="player-avatar">
-                                O
-                            </div>
-                        </div>
-                        <div class="player-position position-3">
-                            <div class="player-avatar">
-                                P
-                            </div>
-                        </div>
-                        <div class="player-position position-4">
-                            <div class="player-avatar">
-                                S
+                        <div class="col-md-6">
+                            <div class="card text-white bg-warning">
+                                <div class="card-header py-2">
+                                    <h6 class="mb-0 text-dark">
+                                        <i class="fas fa-cut me-2"></i>Cut Card
+                                    </h6>
+                                </div>
+                                <div class="card-body text-center py-2">
+                                    <span id="cut-card-display" class="fw-bold text-dark">None</span>
+                                </div>
                             </div>
                         </div>
                     </div>
-                    
-                    <!-- Player's hand -->
-                    <div class="player-hand">
-                        <h5><i class="fas fa-hand-paper me-1"></i> Your Cards</h5>
-                        <div class="card-container">
-                            <!-- Example cards - these would be generated dynamically -->
-                            <div class="playing-card hearts" data-card-id="hearts-7">
-                                <div class="card-value">7</div>
-                                <div class="card-suit">♥</div>
-                            </div>
-                            <div class="playing-card clubs" data-card-id="clubs-A">
-                                <div class="card-value">A</div>
-                                <div class="card-suit">♣</div>
-                            </div>
-                            <div class="playing-card diamonds" data-card-id="diamonds-K">
-                                <div class="card-value">K</div>
-                                <div class="card-suit">♦</div>
-                            </div>
-                            <div class="playing-card spades" data-card-id="spades-Q">
-                                <div class="card-value">Q</div>
-                                <div class="card-suit">♠</div>
-                            </div>
-                            <div class="playing-card hearts" data-card-id="hearts-J">
-                                <div class="card-value">J</div>
-                                <div class="card-suit">♥</div>
+
+                    <!-- Current Hand Cards -->
+                    <div class="card bg-light mb-4">
+                        <div class="card-header bg-success text-white">
+                            <h6 class="mb-0">
+                                <i class="fas fa-layer-group me-2"></i>Current Hand
+                            </h6>
+                        </div>
+                        <div class="card-body" style="min-height: 150px;">
+                            <div id="hand-cards" class="d-flex flex-wrap gap-2 justify-content-center align-items-center h-100">
+                                <p class="text-muted mb-0">No cards played yet</p>
                             </div>
                         </div>
                     </div>
-                </div>
-                <div class="card-footer">
-                    <div class="row">
-                        <div class="col-md-4">
-                            <div class="stats-card">
-                                <div class="stats-icon">
-                                    <i class="fas fa-users"></i>
-                                </div>
-                                <div class="stats-value">4</div>
-                                <div class="stats-label">Players</div>
-                            </div>
+
+                    <!-- Player's Hand -->
+                    <div class="card bg-light">
+                        <div class="card-header bg-primary text-white">
+                            <h6 class="mb-0">
+                                <i class="fas fa-hand-paper me-2"></i><span id="player-hand-title">Your Hand</span>
+                            </h6>
                         </div>
-                        <div class="col-md-4">
-                            <div class="stats-card">
-                                <div class="stats-icon">
-                                    <i class="fas fa-clock"></i>
-                                </div>
-                                <div class="stats-value" id="game-timer">12:45</div>
-                                <div class="stats-label">Game Time</div>
-                            </div>
-                        </div>
-                        <div class="col-md-4">
-                            <div class="stats-card">
-                                <div class="stats-icon">
-                                    <i class="fas fa-trophy"></i>
-                                </div>
-                                <div class="stats-value">7</div>
-                                <div class="stats-label">Points to Win</div>
+                        <div class="card-body" style="min-height: 120px;">
+                            <div id="player-0-hand" class="d-flex flex-wrap gap-2 justify-content-center align-items-center h-100">
+                                <p class="text-muted mb-0">Loading your cards...</p>
                             </div>
                         </div>
                     </div>
                 </div>
             </div>
-            
-            <!-- Game Controls -->
-            <div class="card mb-4">
-                <div class="card-header">
-                    <i class="fas fa-cogs me-2"></i> Game Controls
+        </div>
+
+        <!-- Right Side - Info Panel -->
+        <div class="col-lg-3">
+            <!-- Team Scores -->
+            <div class="card shadow mb-3">
+                <div class="card-header bg-warning text-dark">
+                    <h6 class="mb-0">
+                        <i class="fas fa-trophy me-2"></i>Team Scores
+                    </h6>
                 </div>
-                <div class="card-body">
-                    <div class="row">
-                        <div class="col-md-8">
-                            <div class="alert alert-info">
-                                <i class="fas fa-info-circle me-2"></i>
-                                <span id="game-status">It's your turn! Select a card to play.</span>
-                            </div>
+                <div class="card-body p-3">
+                    <div class="card text-white mb-2" style="background-color: #6f42c1;">
+                        <div class="card-body text-center py-2">
+                            <strong>Team Purple: <span class="team1-score">0</span></strong>
                         </div>
-                        <div class="col-md-4">
-                            <button class="btn btn-primary w-100 mb-2 deal-button">
-                                <i class="fas fa-random me-2"></i> Deal Cards
-                            </button>
-                            <button class="btn btn-success w-100 mb-2" id="play-card-btn">
-                                <i class="fas fa-play me-2"></i> Play Selected Card
-                            </button>
-                            <button class="btn btn-danger w-100" id="leave-game-btn">
-                                <i class="fas fa-sign-out-alt me-2"></i> Leave Game
-                            </button>
+                    </div>
+                    <div class="card text-white" style="background-color: #5e5e5e;">
+                        <div class="card-body text-center py-2">
+                            <strong>Team Black: <span class="team2-score">0</span></strong>
                         </div>
                     </div>
                 </div>
             </div>
-            
-            <!-- Game Chat -->
-            <div class="card">
-                <div class="card-header">
-                    <i class="fas fa-comments me-2"></i> Game Chat
+
+            <!-- Action Buttons -->
+            <div class="card shadow mb-3" id="action-buttons" style="display: none;">
+                <div class="card-header bg-danger text-white">
+                    <h6 class="mb-0">
+                        <i class="fas fa-exclamation-triangle me-2"></i>Action Required
+                    </h6>
                 </div>
                 <div class="card-body">
-                    <div class="chat-messages" style="height: 200px; overflow-y: auto;">
-                        <div class="message-item">
-                            <strong class="message-sender">System:</strong>
-                            <span class="message-text">Game started. Good luck!</span>
-                            <small class="message-time text-muted">12:30</small>
-                        </div>
-                        <div class="message-item">
-                            <strong class="message-sender">Player1:</strong>
-                            <span class="message-text">Hello everyone!</span>
-                            <small class="message-time text-muted">12:31</small>
-                        </div>
+                    <div id="action-message" class="mb-3 text-center">
+                        Make your choice:
                     </div>
-                    <hr>
-                    <form id="chat-form" class="d-flex">
-                        <input type="text" class="form-control me-2" placeholder="Type your message...">
-                        <button type="submit" class="btn btn-primary">
-                            <i class="fas fa-paper-plane"></i>
+                    <div class="d-grid gap-2">
+                        <button class="btn btn-success" id="take-btn" onclick="takeHand()">
+                            <i class="fas fa-check me-2"></i>Take Hand
                         </button>
-                    </form>
+                        <button class="btn btn-outline-secondary" id="forfeit-btn" onclick="forfeitHand()">
+                            <i class="fas fa-times me-2"></i>Forfeit Hand
+                        </button>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Game Info -->
+            <div class="card shadow">
+                <div class="card-header bg-secondary text-white">
+                    <h6 class="mb-0">
+                        <i class="fas fa-info-circle me-2"></i>Game Info
+                    </h6>
+                </div>
+                <div class="card-body">
+                    <div class="mb-3">
+                        <strong>Your Team:</strong>
+                        <div class="text-center mt-2">
+                            <span id="player-team-display" class="badge fs-6 p-2">
+                                <i class="fas fa-users me-1"></i>
+                                Loading...
+                            </span>
+                        </div>
+                    </div>
+                    <div class="mb-3">
+                        <strong>Current Turn:</strong>
+                        <div class="alert alert-primary mt-2 mb-0 py-2 text-center">
+                            <span id="current-player-display">Waiting...</span>
+                        </div>
+                    </div>
+                    <div class="mb-3">
+                        <strong>Cards Remaining:</strong>
+                        <div class="text-center mt-2">
+                            <span class="badge bg-success fs-6 p-2">
+                                <i class="fas fa-layer-group me-1"></i>
+                                <span id="cards-in-deck">0</span> cards left
+                            </span>
+                        </div>
+                    </div>
+                    <div class="text-center">
+                        <a href="/lobbies" class="btn btn-outline-primary btn-sm">
+                            <i class="fas fa-arrow-left me-2"></i>Back to Lobbies
+                        </a>
+                    </div>
                 </div>
             </div>
         </div>
     </div>
 </div>
+
+<style>
+/* Card styling for game cards */
+.game-card {
+    width: 60px;
+    height: 90px;
+    border-radius: 8px;
+    border: 2px solid #dee2e6;
+    background: white;
+    display: inline-flex;
+    flex-direction: column;
+    justify-content: space-between;
+    align-items: center;
+    padding: 8px 4px;
+    margin: 2px;
+    cursor: pointer;
+    transition: all 0.2s ease;
+    font-weight: bold;
+    box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+}
+
+.game-card:hover {
+    transform: translateY(-5px);
+    box-shadow: 0 4px 8px rgba(0,0,0,0.2);
+    border-color: #007bff;
+}
+
+.game-card.playable {
+    border-color: #28a745;
+    background-color: #f8f9fa;
+}
+
+.game-card.playable:hover {
+    border-color: #1e7e34;
+    background-color: #e9ecef;
+}
+
+.game-card.hearts,
+.game-card.diamonds {
+    color: #dc3545;
+}
+
+.game-card.clubs,
+.game-card.spades {
+    color: #343a40;
+}
+
+.card-value {
+    font-size: 14px;
+    line-height: 1;
+}
+
+.card-suit {
+    font-size: 20px;
+    line-height: 1;
+}
+
+/* Responsive card sizes */
+@media (max-width: 768px) {
+    .game-card {
+        width: 50px;
+        height: 75px;
+        padding: 6px 3px;
+    }
+    
+    .card-value {
+        font-size: 12px;
+    }
+    
+    .card-suit {
+        font-size: 16px;
+    }
+}
+</style>
 {% endblock %}
 
 {% block extra_scripts %}
-<script src="{{ url_for('static', filename='js/game.js') }}"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/socket.io/4.0.1/socket.io.js"></script>
+<script>
+const socket = io();
+const lobbyCode = document.getElementById('lobby-code').value;
+let myPosition = null;
+let gameState = null;
+
+// Join game room
+socket.emit('join_lobby_room', { lobby_code: lobbyCode });
+
+// Initialize game
+socket.emit('initialize_game', { lobby_code: lobbyCode });
+
+// Handle game state updates
+socket.on('game_state_update', function(state) {
+    gameState = state;
+    myPosition = state.position;
+    updateGameDisplay(state);
+});
+
+// Function to show custom game toast (similar to lobby style)
+function showGameToast(message, type = 'info') {
+    // Determine background color and icon based on type
+    let bgClass = 'bg-info';
+    let iconClass = 'fas fa-info-circle';
+    
+    if (type === 'error') {
+        bgClass = 'bg-danger';
+        iconClass = 'fas fa-exclamation-triangle';
+    } else if (type === 'success') {
+        bgClass = 'bg-success';
+        iconClass = 'fas fa-check-circle';
+    } else if (type === 'warning') {
+        bgClass = 'bg-warning text-dark';
+        iconClass = 'fas fa-exclamation-triangle';
+    }
+    
+    // Create toast element
+    const toast = document.createElement('div');
+    toast.className = 'position-fixed top-0 start-50 translate-middle-x p-3';
+    toast.style.zIndex = '9999';
+    toast.innerHTML = `
+        <div class="toast show align-items-center text-white ${bgClass} border-0" role="alert" aria-live="assertive" aria-atomic="true">
+            <div class="d-flex">
+                <div class="toast-body">
+                    <i class="${iconClass} me-2"></i>${message}
+                </div>
+                <button type="button" class="btn-close btn-close-white me-2 m-auto" onclick="this.closest('.position-fixed').remove()" aria-label="Close"></button>
+            </div>
+        </div>
+    `;
+    
+    document.body.appendChild(toast);
+    
+    // Remove the toast after 2 seconds (faster than lobby)
+    setTimeout(() => {
+        if (toast.parentNode) {
+            toast.remove();
+        }
+    }, 2000);
+}
+
+// Handle game errors
+socket.on('game_error', function(data) {
+    showGameToast(data.message, 'error');
+});
+
+// Handle game completion
+socket.on('game_completed', function(data) {
+    // Redirect to lobby immediately - notification will be shown there
+    window.location.href = '/lobbies';
+});
+
+function updateGameDisplay(state) {
+    // Update scores
+    document.querySelector('.team1-score').textContent = state.scores[0];
+    document.querySelector('.team2-score').textContent = state.scores[1];
+    
+    // Update player hand title with username
+    if (state.player_names && myPosition !== null) {
+        const playerHandTitle = document.querySelector('#player-hand-title');
+        playerHandTitle.textContent = `${state.player_names[myPosition]}'s Hand`;
+    }
+    
+    // Update player team display
+    updatePlayerTeam(state);
+    
+    // Update current player turn indicator
+    const currentPlayerDisplay = document.querySelector('#current-player-display');
+    if (state.player_names && state.current_player !== null) {
+        const currentPlayerName = state.player_names[state.current_player];
+        
+        if (state.current_player === myPosition) {
+            currentPlayerDisplay.textContent = 'Your Turn!';
+            currentPlayerDisplay.parentElement.className = 'alert alert-success mt-2 mb-0 py-2 text-center';
+        } else {
+            currentPlayerDisplay.textContent = currentPlayerName;
+            currentPlayerDisplay.parentElement.className = 'alert alert-primary mt-2 mb-0 py-2 text-center';
+        }
+    } else {
+        currentPlayerDisplay.textContent = 'Waiting...';
+        currentPlayerDisplay.parentElement.className = 'alert alert-secondary mt-2 mb-0 py-2 text-center';
+    }
+    
+    // Update game status info
+    const cutCardDisplay = document.querySelector('#cut-card-display');
+    if (state.cut_card) {
+        cutCardDisplay.textContent = `${state.cut_card.value}${getSuitSymbol(state.cut_card.suit)}`;
+    } else {
+        cutCardDisplay.textContent = 'None';
+    }
+    
+    // Update hand owner with team color
+    const handOwnerDisplay = document.querySelector('#hand-owner-display');
+    if (state.player_names && state.hand_owner !== null) {
+        const ownerName = state.player_names[state.hand_owner];
+        handOwnerDisplay.textContent = ownerName;
+        
+        // Set team color background - make purple more visible with darker shade
+        if (state.hand_owner % 2 === 0) {
+            // Team Purple (positions 0, 2) - darker purple for better visibility
+            handOwnerDisplay.className = 'fw-bold badge fs-6 py-2 px-3 text-white';
+            handOwnerDisplay.style.backgroundColor = '#6f42c1'; // Darker purple
+        } else {
+            // Team Black (positions 1, 3)
+            handOwnerDisplay.className = 'fw-bold badge fs-6 py-2 px-3 text-white';
+            handOwnerDisplay.style.backgroundColor = '#212529'; // Dark gray/black
+        }
+    } else {
+        handOwnerDisplay.textContent = 'None';
+        handOwnerDisplay.className = 'fw-bold badge fs-6 py-2 px-3 text-white';
+        handOwnerDisplay.style.backgroundColor = '#6c757d'; // Gray for no owner
+    }
+    
+    // Update deck count
+    document.querySelector('#cards-in-deck').textContent = state.cards_in_deck;
+    
+    // Update current player's hand
+    updatePlayerHand(state);
+    
+    // Update center pile with current hand cards
+    updateCenterPile(state);
+    
+    // Update action buttons
+    updateActionButtons(state);
+}
+
+function updatePlayerHand(state) {
+    const myHand = document.querySelector('#player-0-hand');
+    myHand.innerHTML = '';
+    
+    if (state.hand && state.hand.length > 0) {
+        state.hand.forEach((card, index) => {
+            const cardElement = createGameCard(card, index);
+            
+            // Determine if card is playable
+            let isPlayable = false;
+            if (state.current_player === myPosition) {
+                if (state.game_phase === 'playing') {
+                    isPlayable = true;
+                } else if (state.game_phase === 'starter_decision') {
+                    // Only cut cards are playable during starter decision
+                    isPlayable = isCutCard(card, state.cut_card);
+                }
+            }
+            
+            if (isPlayable) {
+                cardElement.classList.add('playable');
+            }
+            
+            myHand.appendChild(cardElement);
+        });
+    } else {
+        myHand.innerHTML = '<p class="text-muted mb-0">No cards in hand</p>';
+    }
+}
+
+function updateCenterPile(state) {
+    const handCards = document.querySelector('#hand-cards');
+    if (!handCards) return;
+    
+    handCards.innerHTML = '';
+    
+    if (state.current_hand_cards && state.current_hand_cards.length > 0) {
+        // Show all cards from current hand
+        state.current_hand_cards.forEach((playedCard, index) => {
+            const [position, card] = playedCard;
+            const cardElement = createGameCard(card);
+            handCards.appendChild(cardElement);
+        });
+    } else {
+        handCards.innerHTML = '<p class="text-muted mb-0">No cards played yet</p>';
+    }
+}
+
+function updateActionButtons(state) {
+    const actionButtons = document.getElementById('action-buttons');
+    const takeBtn = document.getElementById('take-btn');
+    const forfeitBtn = document.getElementById('forfeit-btn');
+    const actionMessage = document.getElementById('action-message');
+    
+    if (state.game_phase === 'starter_decision' && state.current_player === myPosition) {
+        actionButtons.style.display = 'block';
+        
+        // Show/hide buttons based on if player can take
+        if (state.starter_can_take) {
+            takeBtn.style.display = 'inline-block';
+            forfeitBtn.style.display = 'none';
+            actionMessage.textContent = 'You own the hand! Take it or cut if you want to continue.';
+        } else {
+            takeBtn.style.display = 'none';
+            forfeitBtn.style.display = 'inline-block';
+            actionMessage.textContent = 'You don\'t own the hand. Forfeit or play a cut card to continue.';
+        }
+    } else {
+        actionButtons.style.display = 'none';
+    }
+}
+
+function updatePlayerTeam(state) {
+    const playerTeamDisplay = document.querySelector('#player-team-display');
+    
+    if (myPosition !== null && state.player_names) {
+        // Team Purple: positions 0,2; Team Black: positions 1,3
+        const playerTeam = myPosition % 2 === 0 ? 1 : 2;
+        
+        // Find teammate (same team, different position)
+        let teammatePosition;
+        let teammateName = 'Unknown';
+        
+        if (playerTeam === 1) {
+            // Team Purple: positions 0,2
+            teammatePosition = myPosition === 0 ? 2 : 0;
+        } else {
+            // Team Black: positions 1,3
+            teammatePosition = myPosition === 1 ? 3 : 1;
+        }
+        
+        if (state.player_names[teammatePosition]) {
+            teammateName = state.player_names[teammatePosition];
+        }
+        
+        if (playerTeam === 1) {
+            playerTeamDisplay.innerHTML = `
+                <i class="fas fa-users me-1"></i>
+                Team Purple<br>
+                <small>Partner: ${teammateName}</small>
+            `;
+            playerTeamDisplay.className = 'badge fs-6 p-2';
+            playerTeamDisplay.style.backgroundColor = '#6f42c1';
+            playerTeamDisplay.style.color = 'white';
+        } else if (playerTeam === 2) {
+            playerTeamDisplay.innerHTML = `
+                <i class="fas fa-users me-1"></i>
+                Team Black<br>
+                <small>Partner: ${teammateName}</small>
+            `;
+            playerTeamDisplay.className = 'badge fs-6 p-2';
+            playerTeamDisplay.style.backgroundColor = '#5e5e5e';
+            playerTeamDisplay.style.color = 'white';
+        }
+    } else {
+        playerTeamDisplay.innerHTML = `
+            <i class="fas fa-users me-1"></i>
+            Loading...
+        `;
+        playerTeamDisplay.className = 'badge bg-secondary fs-6 p-2';
+        playerTeamDisplay.style.backgroundColor = '';
+        playerTeamDisplay.style.color = '';
+    }
+}
+
+function isCutCard(card, cutCard) {
+    if (card.value === '7') return true;
+    if (cutCard && card.suit === cutCard.suit && card.value === cutCard.value) return true;
+    return false;
+}
+
+function takeHand() {
+    socket.emit('take_hand', {
+        lobby_code: lobbyCode
+    });
+}
+
+function forfeitHand() {
+    socket.emit('forfeit_hand', {
+        lobby_code: lobbyCode
+    });
+}
+
+function createGameCard(card, index) {
+    const cardDiv = document.createElement('div');
+    cardDiv.className = `game-card ${card.suit}`;
+    cardDiv.innerHTML = `
+        <div class="card-value">${card.value}</div>
+        <div class="card-suit">${getSuitSymbol(card.suit)}</div>
+    `;
+    
+    if (index !== undefined) {
+        cardDiv.onclick = () => playCard(index);
+    }
+    
+    return cardDiv;
+}
+
+function getSuitSymbol(suit) {
+    const symbols = {
+        'hearts': '♥',
+        'diamonds': '♦',
+        'clubs': '♣',
+        'spades': '♠'
+    };
+    return symbols[suit] || suit;
+}
+
+function playCard(cardIndex) {
+    if (gameState && gameState.current_player === myPosition) {
+        socket.emit('play_card', {
+            lobby_code: lobbyCode,
+            card_index: cardIndex
+        });
+    }
+}
+</script>
+
 {% endblock %}

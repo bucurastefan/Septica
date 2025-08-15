@@ -1,0 +1,218 @@
+{% extends "base.html" %}
+
+{% block title %}Game Rules - Septica{% endblock %}
+
+{% block content %}
+<div class="container mt-4">
+    <div class="row justify-content-center">
+        <div class="col-lg-10">
+            <div class="card shadow">
+                <div class="card-header bg-primary text-white text-center">
+                    <h2 class="mb-0"><i class="fas fa-book me-2"></i>Septica Game Rules</h2>
+                </div>
+                <div class="card-body">
+                    
+                    <!-- Game Overview -->
+                    <div class="mb-5">
+                        <h4 class="text-primary mb-3"><i class="fas fa-info-circle me-2"></i>Game Overview</h4>
+                        <p class="lead">Septica is a trick-taking card game for 4 players arranged in 2 teams. The goal is to be the first team to reach a certain number of points by collecting scoring cards (10s and Aces) during hands.</p>
+                    </div>
+
+                    <!-- Setup -->
+                    <div class="mb-5">
+                        <h4 class="text-primary mb-3"><i class="fas fa-users me-2"></i>Setup</h4>
+                        <div class="row">
+                            <div class="col-md-6">
+                                <div class="card bg-light">
+                                    <div class="card-body">
+                                        <h6 class="card-title text-purple"><strong>Team Purple</strong></h6>
+                                        <p class="card-text mb-0">Player 1 & Player 3</p>
+                                    </div>
+                                </div>
+                            </div>
+                            <div class="col-md-6">
+                                <div class="card bg-light">
+                                    <div class="card-body">
+                                        <h6 class="card-title" style="color: #666;"><strong>Team Black</strong></h6>
+                                        <p class="card-text mb-0">Player 2 & Player 4</p>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                        <p class="mt-3">Each player starts with 4 cards. New cards are dealt after each hand until the deck is empty.</p>
+                    </div>
+
+                    <!-- Scoring Cards -->
+                    <div class="mb-5">
+                        <h4 class="text-primary mb-3"><i class="fas fa-star me-2"></i>Scoring Cards</h4>
+                        <div class="row">
+                            <div class="col-md-6">
+                                <div class="alert alert-warning">
+                                    <h6><i class="fas fa-trophy me-2"></i><strong>10s and Aces</strong></h6>
+                                    <p class="mb-0">Each 10 and Ace is worth <strong>1 point</strong></p>
+                                </div>
+                            </div>
+                            <div class="col-md-6">
+                                <div class="alert alert-info">
+                                    <h6><i class="fas fa-cards-blank me-2"></i><strong>Other Cards</strong></h6>
+                                    <p class="mb-0">7, 8, 9, J, Q, K are worth <strong>0 points</strong></p>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Cut Cards -->
+                    <div class="mb-5">
+                        <h4 class="text-primary mb-3"><i class="fas fa-cut me-2"></i>Cut Cards</h4>
+                        <div class="alert alert-success">
+                            <h6><i class="fas fa-magic me-2"></i><strong>Special Cards that Change Hand Ownership</strong></h6>
+                            <ul class="mb-0">
+                                <li><strong>All 7s</strong> - Always cut regardless of the current hand</li>
+                                <li><strong>Matching Value</strong> - Any card with the same value as the first card played in the hand</li>
+                            </ul>
+                        </div>
+                        <p><strong>Example:</strong> If the first card played is a King of Hearts, then all 7s and all Kings can cut and take ownership of the hand.</p>
+                    </div>
+
+                    <!-- How to Play -->
+                    <div class="mb-5">
+                        <h4 class="text-primary mb-3"><i class="fas fa-play me-2"></i>How to Play</h4>
+                        
+                        <div class="mb-4">
+                            <h6 class="text-secondary"><i class="fas fa-arrow-right me-2"></i>Playing Cards</h6>
+                            <ol>
+                                <li>Players take turns playing one card each</li>
+                                <li>The first card played sets the "cut value" for that hand</li>
+                                <li>Each subsequent card is played by the next player in turn</li>
+                                <li>After 4 cards are played, if it's the starter's turn again, they must make a decision</li>
+                            </ol>
+                        </div>
+
+                        <div class="mb-4">
+                            <h6 class="text-secondary"><i class="fas fa-decision me-2"></i>Starter Decision</h6>
+                            <p>When play returns to the hand starter, they have three options:</p>
+                            <div class="row">
+                                <div class="col-md-4">
+                                    <div class="card border-success">
+                                        <div class="card-body text-center">
+                                            <h6 class="text-success">Take Hand</h6>
+                                            <p class="small mb-0">Only available if the starter currently owns the hand</p>
+                                        </div>
+                                    </div>
+                                </div>
+                                <div class="col-md-4">
+                                    <div class="card border-danger">
+                                        <div class="card-body text-center">
+                                            <h6 class="text-danger">Forfeit Hand</h6>
+                                            <p class="small mb-0">Give up the hand to whoever currently owns it</p>
+                                        </div>
+                                    </div>
+                                </div>
+                                <div class="col-md-4">
+                                    <div class="card border-primary">
+                                        <div class="card-body text-center">
+                                            <h6 class="text-primary">Continue</h6>
+                                            <p class="small mb-0">Play a cut card to continue the hand and take ownership</p>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+
+                        <div class="mb-4">
+                            <h6 class="text-secondary"><i class="fas fa-hand-holding me-2"></i>Hand Resolution</h6>
+                            <ul>
+                                <li>The player who owns the hand when it ends gets all the points from cards in that hand</li>
+                                <li>The hand owner becomes the starter for the next hand</li>
+                                <li>New cards are dealt to all players (if available)</li>
+                            </ul>
+                        </div>
+                    </div>
+
+                    <!-- Winning -->
+                    <div class="mb-5">
+                        <h4 class="text-primary mb-3"><i class="fas fa-crown me-2"></i>Winning & Scoring</h4>
+                        
+                        <div class="row">
+                            <div class="col-md-6">
+                                <div class="alert alert-primary">
+                                    <h6><i class="fas fa-medal me-2"></i><strong>Regular Win</strong></h6>
+                                    <p class="mb-0">Team with more points at game end gets <strong>1 lobby point</strong></p>
+                                </div>
+                            </div>
+                            <div class="col-md-6">
+                                <div class="alert alert-warning">
+                                    <h6><i class="fas fa-trophy me-2"></i><strong>Perfect Game</strong></h6>
+                                    <p class="mb-0">If losing team wins <strong>0 hands</strong>, winning team gets <strong>2 lobby points</strong></p>
+                                </div>
+                            </div>
+                        </div>
+
+                        <div class="alert alert-info">
+                            <h6><i class="fas fa-balance-scale me-2"></i><strong>Important Note</strong></h6>
+                            <p class="mb-0">A perfect game (2 points) is awarded only when the losing team wins <strong>zero hands</strong> during the entire game, not just when the final score is 8-0. A team can lose 8-0 but still get only 1 point awarded to the opponent if they won at least one hand with non-scoring cards.</p>
+                        </div>
+
+                        <div class="alert alert-secondary">
+                            <h6><i class="fas fa-redo me-2"></i><strong>Tie Games</strong></h6>
+                            <p class="mb-0">If both teams end with the same score, the next game will be worth 2 lobby points instead of 1.</p>
+                        </div>
+                    </div>
+
+                    <!-- Starting Player Rotation -->
+                    <div class="mb-5">
+                        <h4 class="text-primary mb-3"><i class="fas fa-sync-alt me-2"></i>Starting Player Rotation</h4>
+                        <p>The starting player rotates fairly between all players:</p>
+                        <ol>
+                            <li><strong>Game 1:</strong> Team Purple, Player 1</li>
+                            <li><strong>Game 2:</strong> Team Black, Player 1</li>
+                            <li><strong>Game 3:</strong> Team Purple, Player 2</li>
+                            <li><strong>Game 4:</strong> Team Black, Player 2</li>
+                            <li><strong>Game 5:</strong> Cycle repeats...</li>
+                        </ol>
+                    </div>
+
+                    <!-- Strategy Tips -->
+                    <div class="mb-4">
+                        <h4 class="text-primary mb-3"><i class="fas fa-lightbulb me-2"></i>Strategy Tips</h4>
+                        <div class="row">
+                            <div class="col-md-6">
+                                <div class="card border-warning">
+                                    <div class="card-body">
+                                        <h6 class="text-warning"><i class="fas fa-chess me-2"></i>Offense</h6>
+                                        <ul class="small mb-0">
+                                            <li>Save cut cards for crucial moments</li>
+                                            <li>Try to take hands with high-value cards</li>
+                                            <li>Coordinate with your teammate</li>
+                                        </ul>
+                                    </div>
+                                </div>
+                            </div>
+                            <div class="col-md-6">
+                                <div class="card border-info">
+                                    <div class="card-body">
+                                        <h6 class="text-info"><i class="fas fa-shield-alt me-2"></i>Defense</h6>
+                                        <ul class="small mb-0">
+                                            <li>Block opponents from taking valuable hands</li>
+                                            <li>Force difficult decisions on opponents</li>
+                                            <li>Watch for perfect game situations</li>
+                                        </ul>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Back Button -->
+                    <div class="text-center">
+                        <a href="{{ url_for('lobbies') }}" class="btn btn-secondary btn-lg">
+                            <i class="fas fa-arrow-left me-2"></i>Back to Lobbies
+                        </a>
+                    </div>
+
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

@@ -35,7 +35,7 @@
                     <span class="card-symbol heart-purple">♥</span>
                     <span class="card-symbol club-black">♣</span>
                     <span class="card-symbol diamond-purple">♦</span>
-                    <span class="card-symbol heart-black">♥</span>
+                    <span class="card-symbol spade-black">♠</span>
                 </span>
                 Șeptică
             </a>
@@ -59,6 +59,11 @@
                             </a>
                         </li>
                         {% endif %}
+                        <li class="nav-item">
+                            <a class="nav-link" href="{{ url_for('rules') }}">
+                                <i class="fas fa-book me-1"></i> Rules
+                            </a>
+                        </li>
                         <li class="nav-item">
                             <a class="nav-link" href="{{ url_for('logout') }}">
                                 <i class="fas fa-sign-out-alt me-1"></i> Logout

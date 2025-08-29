@@ -1,4 +1,4 @@
-Current address: http://briceagbch.home.ro
+Current host on aws elasticbeanstalk : http://7even.eu-north-1.elasticbeanstalk.com
 
 Version 0.5.2
 ![image](https://github.com/user-attachments/assets/1bc25988-60d2-4163-a4e9-5e4d32ca2580)

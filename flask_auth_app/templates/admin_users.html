@@ -41,30 +41,29 @@
                                            <i class="fas fa-edit me-1"></i> Edit
                                         </a>
                                         <button type="button" class="btn btn-sm btn-danger" 
-                                                data-bs-toggle="modal" 
-                                                data-bs-target="#deleteModal{{ user.id }}">
+                                                onclick="showDeleteConfirm({{ user.id }}, '{{ user.username }}')">
                                             <i class="fas fa-trash-alt me-1"></i> Delete
                                         </button>
                                     </div>
                                     
-                                    <!-- Delete Confirmation Modal -->
-                                    <div class="modal fade" id="deleteModal{{ user.id }}" tabindex="-1">
-                                        <div class="modal-dialog">
-                                            <div class="modal-content">
-                                                <div class="modal-header">
-                                                    <h5 class="modal-title"><i class="fas fa-exclamation-triangle me-2 text-danger"></i> Confirm Delete</h5>
-                                                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
-                                                </div>
-                                                <div class="modal-body">
-                                                    Are you sure you want to delete user <strong>{{ user.username }}</strong>?
-                                                    This action cannot be undone.
-                                                </div>
-                                                <div class="modal-footer">
-                                                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
-                                                    <form action="{{ url_for('admin_delete_user', user_id=user.id) }}" method="POST">
-                                                        <button type="submit" class="btn btn-danger">Delete User</button>
-                                                    </form>
-                                                </div>
+                                    <!-- Inline delete confirmation (hidden by default) -->
+                                    <div id="deleteConfirm{{ user.id }}" class="mt-2" style="display: none;">
+                                        <div class="alert alert-danger mb-2 p-2">
+                                            <small class="d-block mb-2">
+                                                <i class="fas fa-exclamation-triangle me-1"></i>
+                                                Delete user <strong>{{ user.username }}</strong>?
+                                            </small>
+                                            <div class="btn-group btn-group-sm w-100">
+                                                <form action="{{ url_for('admin_delete_user', user_id=user.id) }}" 
+                                                      method="POST" class="flex-fill">
+                                                    <button type="submit" class="btn btn-danger btn-sm">
+                                                        <i class="fas fa-check me-1"></i> Yes
+                                                    </button>
+                                                </form>
+                                                <button type="button" class="btn btn-secondary btn-sm ms-1" 
+                                                        onclick="hideDeleteConfirm({{ user.id }})">
+                                                    <i class="fas fa-times me-1"></i> No
+                                                </button>
                                             </div>
                                         </div>
                                     </div>
@@ -85,4 +84,22 @@
         </div>
     </div>
 </div>
+{% endblock %}
+
+{% block extra_scripts %}
+<script>
+function showDeleteConfirm(userId, username) {
+    // Hide all other delete confirmations first
+    document.querySelectorAll('[id^="deleteConfirm"]').forEach(function(element) {
+        element.style.display = 'none';
+    });
+    
+    // Show the specific delete confirmation
+    document.getElementById('deleteConfirm' + userId).style.display = 'block';
+}
+
+function hideDeleteConfirm(userId) {
+    document.getElementById('deleteConfirm' + userId).style.display = 'none';
+}
+</script>
 {% endblock %}

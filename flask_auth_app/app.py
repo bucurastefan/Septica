@@ -166,6 +166,63 @@ class LobbyPlayer(db.Model):
     def __repr__(self):
         return f'<LobbyPlayer {self.user.username} in {self.lobby.code}, Team {self.team}>'
 
+# Define PlayerStats model for tracking game statistics
+class PlayerStats(db.Model):
+    id = db.Column(db.Integer, primary_key=True)
+    user_id = db.Column(db.Integer, db.ForeignKey('user.id'), nullable=False, unique=True)
+    games_played = db.Column(db.Integer, default=0)
+    games_won = db.Column(db.Integer, default=0)
+    games_lost = db.Column(db.Integer, default=0)
+    total_points_scored = db.Column(db.Integer, default=0)
+    total_points_conceded = db.Column(db.Integer, default=0)
+    longest_win_streak = db.Column(db.Integer, default=0)
+    current_win_streak = db.Column(db.Integer, default=0)
+    longest_lose_streak = db.Column(db.Integer, default=0)
+    current_lose_streak = db.Column(db.Integer, default=0)
+    total_hands_played = db.Column(db.Integer, default=0)
+    perfect_games = db.Column(db.Integer, default=0)  # Games won with opponent scoring 0
+    comeback_wins = db.Column(db.Integer, default=0)  # Games won after being behind
+    last_updated = db.Column(db.DateTime, default=datetime.utcnow)
+    
+    # Relationship with User
+    user = db.relationship('User', backref=db.backref('stats', uselist=False))
+    
+    def __repr__(self):
+        return f'<PlayerStats for {self.user.username}: {self.games_won}/{self.games_played}>'
+    
+    @property
+    def win_rate(self):
+        """Calculate win rate as percentage"""
+        if self.games_played == 0:
+            return 0.0
+        return round((self.games_won / self.games_played) * 100, 2)
+    
+    @property
+    def loss_rate(self):
+        """Calculate loss rate as percentage"""
+        if self.games_played == 0:
+            return 0.0
+        return round((self.games_lost / self.games_played) * 100, 2)
+    
+    @property
+    def average_points_per_game(self):
+        """Calculate average points scored per game"""
+        if self.games_played == 0:
+            return 0.0
+        return round(self.total_points_scored / self.games_played, 2)
+    
+    @property
+    def average_points_conceded_per_game(self):
+        """Calculate average points conceded per game"""
+        if self.games_played == 0:
+            return 0.0
+        return round(self.total_points_conceded / self.games_played, 2)
+    
+    @property
+    def point_differential(self):
+        """Calculate point differential (scored - conceded)"""
+        return self.total_points_scored - self.total_points_conceded
+
 # Function to generate a unique lobby code
 def generate_lobby_code():
     while True:
@@ -449,6 +506,45 @@ def home():
 @application.route('/rules')
 def rules():
     return render_template('rules.html')
+
+@application.route('/statistics')
+def statistics():
+    """Show player statistics page"""
+    if 'username' not in session:
+        flash('You need to be logged in to view statistics!', 'error')
+        return redirect(url_for('login'))
+    
+    try:
+        username = session.get('username')
+        user = User.query.filter_by(username=username).first()
+        if not user:
+            flash('User not found!', 'error')
+            return redirect(url_for('login'))
+        
+        # Get or create player statistics
+        stats = PlayerStats.query.filter_by(user_id=user.id).first()
+        if not stats:
+            stats = PlayerStats(user_id=user.id)
+            db.session.add(stats)
+            db.session.commit()
+        
+        # Get leaderboard data (top 10 players by wins)
+        leaderboard = db.session.query(PlayerStats, User).join(User).filter(
+            PlayerStats.games_played > 0
+        ).order_by(PlayerStats.games_won.desc()).limit(10).all()
+        
+        # Get user's rank
+        user_rank = db.session.query(PlayerStats).filter(
+            PlayerStats.games_won > stats.games_won,
+            PlayerStats.games_played > 0
+        ).count() + 1
+        
+        return render_template('statistics.html', user=user, stats=stats, leaderboard=leaderboard, user_rank=user_rank)
+        
+    except Exception as e:
+        logger.error(f"Error accessing statistics page: {e}")
+        flash('An error occurred while loading statistics.', 'error')
+        return redirect(url_for('lobbies'))
 
 @application.route('/logout')
 def logout():
@@ -1505,6 +1601,10 @@ def handle_play_card(data):
     success, error = games[lobby_code].play_card(player_position, card_index)
     
     if success:
+        # Check if game is finished after playing the card
+        if handle_game_completion(lobby_code, lobby, lobby_players):
+            return  # Game completed, notifications already sent
+            
         # Broadcast updated game state to all players
         for i, _ in enumerate(lobby_players):
             game_state = games[lobby_code].get_game_state(i)
@@ -1513,6 +1613,108 @@ def handle_play_card(data):
             emit('game_state_update', game_state, room=f"{lobby_code}_player_{i}")
     else:
         emit('game_error', {'message': error})
+
+def get_or_create_player_stats(user_id):
+    """Get existing player stats or create new ones"""
+    stats = PlayerStats.query.filter_by(user_id=user_id).first()
+    if not stats:
+        stats = PlayerStats(user_id=user_id)
+        db.session.add(stats)
+        db.session.flush()  # Flush to get the ID
+    return stats
+
+def update_player_statistics(lobby, lobby_players, winner_team, is_tie, scores, hands_won, is_perfect_game):
+    """Update player statistics after a game completion"""
+    try:
+        # Get team assignments
+        team1_players = []  # Team Purple (positions 0, 2)
+        team2_players = []  # Team Black (positions 1, 3)
+        
+        for i, player in enumerate(lobby_players):
+            if i % 2 == 0:  # Positions 0, 2 = Team Purple
+                team1_players.append(player.user_id)
+            else:  # Positions 1, 3 = Team Black
+                team2_players.append(player.user_id)
+        
+        # Determine winners and losers
+        if is_tie:
+            # Handle tie - no winners/losers, just update games played
+            for player in lobby_players:
+                stats = get_or_create_player_stats(player.user_id)
+                stats.games_played += 1
+                stats.total_hands_played += hands_won[0] + hands_won[1]  # Both teams' hands
+                stats.last_updated = datetime.utcnow()
+                # Reset lose streak on tie, don't affect win streak
+                stats.current_lose_streak = 0
+        else:
+            # Determine winning and losing teams
+            if winner_team == 0:  # Team Purple wins
+                winning_players = team1_players
+                losing_players = team2_players
+                winning_score = scores[0]
+                losing_score = scores[1]
+                winning_hands = hands_won[0]
+                losing_hands = hands_won[1]
+            else:  # Team Black wins
+                winning_players = team2_players
+                losing_players = team1_players
+                winning_score = scores[1]
+                losing_score = scores[0]
+                winning_hands = hands_won[1]
+                losing_hands = hands_won[0]
+            
+            # Check if it was a comeback win (winning team was behind at some point)
+            was_comeback = losing_score > 0 and winning_score > losing_score
+            
+            # Update statistics for winning players
+            for user_id in winning_players:
+                stats = get_or_create_player_stats(user_id)
+                stats.games_played += 1
+                stats.games_won += 1
+                stats.total_points_scored += winning_score
+                stats.total_points_conceded += losing_score
+                stats.total_hands_played += winning_hands + losing_hands
+                stats.current_win_streak += 1
+                stats.current_lose_streak = 0
+                
+                # Update longest win streak
+                if stats.current_win_streak > stats.longest_win_streak:
+                    stats.longest_win_streak = stats.current_win_streak
+                
+                # Check for perfect game (opponent scored 0)
+                if is_perfect_game:
+                    stats.perfect_games += 1
+                
+                # Check for comeback win
+                if was_comeback:
+                    stats.comeback_wins += 1
+                
+                stats.last_updated = datetime.utcnow()
+            
+            # Update statistics for losing players
+            for user_id in losing_players:
+                stats = get_or_create_player_stats(user_id)
+                stats.games_played += 1
+                stats.games_lost += 1
+                stats.total_points_scored += losing_score
+                stats.total_points_conceded += winning_score
+                stats.total_hands_played += losing_hands + winning_hands
+                stats.current_lose_streak += 1
+                stats.current_win_streak = 0
+                
+                # Update longest lose streak
+                if stats.current_lose_streak > stats.longest_lose_streak:
+                    stats.longest_lose_streak = stats.current_lose_streak
+                
+                stats.last_updated = datetime.utcnow()
+        
+        # Commit all statistics updates
+        db.session.commit()
+        logger.info(f"Updated player statistics for lobby {lobby.code}")
+        
+    except Exception as e:
+        logger.error(f"Error updating player statistics: {e}")
+        db.session.rollback()
 
 def handle_game_completion(lobby_code, lobby, lobby_players):
     """Handle game completion - update lobby stats and notify players"""
@@ -1562,6 +1764,9 @@ def handle_game_completion(lobby_code, lobby, lobby_players):
         else:
             notification_message = f"{team_name} wins! ({scores[0]}-{scores[1]}) +{points_awarded} points awarded."
         notification_type = "success"
+    
+    # Update player statistics
+    update_player_statistics(lobby, lobby_players, winner_team, is_tie, scores, hands_won, is_perfect_game if not is_tie else False)
     
     # Save lobby changes
     db.session.commit()

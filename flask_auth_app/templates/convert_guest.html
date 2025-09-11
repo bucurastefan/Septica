@@ -1,0 +1,66 @@
+{% extends "base.html" %}
+
+{% block title %}Convert Guest Account - Șeptică{% endblock %}
+
+{% block content %}
+<div class="row justify-content-center">
+    <div class="col-md-6">
+        <div class="auth-container animate-fade-in">
+            <h2 class="page-title text-center mb-4">Convert Guest Account</h2>
+            <div class="auth-card">
+                <div class="card-header">
+                    <i class="fas fa-user-plus me-2"></i> Save Your Progress
+                </div>
+                <div class="card-body">
+                    <div class="alert alert-info mb-3">
+                        <i class="fas fa-info-circle me-2"></i>
+                        Convert your guest account to a registered account to save your game progress and statistics permanently!
+                    </div>
+                    
+                    <form method="POST" action="{{ url_for('convert_guest') }}">
+                        <div class="form-group mb-3">
+                            <label for="current_name" class="form-label">Current Guest Name</label>
+                            <div class="input-group">
+                                <span class="input-group-text"><i class="fas fa-user-ninja"></i></span>
+                                <input type="text" class="form-control" id="current_name" value="{{ session['username'] }}" disabled>
+                            </div>
+                            <small class="form-text text-muted">Your username will remain the same</small>
+                        </div>
+                        
+                        <div class="form-group mb-3">
+                            <label for="email" class="form-label">Email Address</label>
+                            <div class="input-group">
+                                <span class="input-group-text"><i class="fas fa-envelope"></i></span>
+                                <input type="email" class="form-control" id="email" name="email" placeholder="Enter your email" required>
+                            </div>
+                        </div>
+                        
+                        <div class="form-group mb-4">
+                            <label for="password" class="form-label">Password</label>
+                            <div class="input-group">
+                                <span class="input-group-text"><i class="fas fa-key"></i></span>
+                                <input type="password" class="form-control" id="password" name="password" placeholder="Create a password" required>
+                            </div>
+                        </div>
+                        
+                        <div class="d-grid gap-2">
+                            <button type="submit" class="btn btn-success">
+                                <i class="fas fa-save me-2"></i> Convert to Registered Account
+                            </button>
+                            <a href="{{ url_for('lobbies') }}" class="btn btn-outline-secondary">
+                                <i class="fas fa-arrow-left me-2"></i> Continue as Guest
+                            </a>
+                        </div>
+                    </form>
+                </div>
+                <div class="card-footer text-center py-3">
+                    <small class="text-muted">
+                        <i class="fas fa-shield-alt me-1"></i>
+                        Your data is secure and will be encrypted
+                    </small>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

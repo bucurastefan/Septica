@@ -6,6 +6,26 @@
 <div class="container animate-fade-in">
     <h1 class="page-title text-center mb-4">Game Lobbies</h1>
     
+    <!-- Guest User Notice -->
+    {% if session.get('is_guest', False) %}
+    <div class="alert alert-info mb-4">
+        <div class="d-flex justify-content-between align-items-center">
+            <div>
+                <i class="fas fa-info-circle me-2"></i>
+                <strong>Playing as Guest:</strong> You're playing as a guest user. Your game data will be deleted when you log out.
+            </div>
+            <div>
+                <a href="{{ url_for('convert_guest') }}" class="btn btn-success btn-sm">
+                    <i class="fas fa-save me-1"></i> Save Progress
+                </a>
+                <a href="{{ url_for('register') }}" class="btn btn-outline-primary btn-sm">
+                    <i class="fas fa-user-plus me-1"></i> Register
+                </a>
+            </div>
+        </div>
+    </div>
+    {% endif %}
+    
     <div class="row">
         <div class="col-lg-8">
             <!-- Active Games Section -->
@@ -55,7 +75,9 @@
                                 <a href="{{ url_for('lobby_detail', lobby_code=lobby.code) }}" class="list-group-item list-group-item-action lobby-card mb-3" data-lobby-code="{{ lobby.code }}">
                                     <div class="d-flex w-100 justify-content-between">
                                         <h5 class="mb-1 fw-bold">{{ lobby.name or 'Lobby #' + lobby.code }}</h5>
-                                        <span class="badge badge-primary">{{ lobby.player_count }} player(s)</span>
+                                        <div>
+                                            <span class="badge bg-info me-1">{{ lobby.player_count }}/{{ lobby.player_count_type }} players</span>
+                                        </div>
                                     </div>
                                     <p class="mb-1">
                                         {% if lobby.owner_id == user.id %}
@@ -113,10 +135,12 @@
                             {% for lobby in public_lobbies %}
                                 <div class="list-group-item d-flex justify-content-between align-items-center" data-lobby-code="{{ lobby.code }}">
                                     <div>
-                                        <h5 class="mb-1">{{ lobby.name or 'Lobby #' + lobby.code }}</h5>
+                                        <h5 class="mb-1">
+                                            {{ lobby.name or 'Lobby #' + lobby.code }}
+                                        </h5>
                                         <p class="mb-1">
                                             Code: {{ lobby.code }}<br>
-                                            Players: {{ lobby.player_count }}
+                                            Players: {{ lobby.player_count }}/{{ lobby.player_count_type }}
                                             <br>
                                             Created: {{ lobby.created_at.strftime('%Y-%m-%d %H:%M') }}
                                         </p>
@@ -157,6 +181,21 @@
                     {% else %}
                         <p>Create a new game lobby and invite your friends to join!</p>
                         <form method="POST" action="{{ url_for('create_lobby') }}">
+                            <div class="mb-3">
+                                <label class="form-label">Game Type</label>
+                                <div class="game-type-switch-container">
+                                    <div class="toggle-switch">
+                                        <input type="radio" name="player_count_type" id="createFourPlayer" value="4" checked>
+                                        <input type="radio" name="player_count_type" id="createThreePlayer" value="3">
+                                        <label for="createFourPlayer" class="switch-option left">4-Player</label>
+                                        <label for="createThreePlayer" class="switch-option right">3-Player</label>
+                                        <div class="switch-slider"></div>
+                                    </div>
+                                </div>
+                                <div class="form-text">
+                                    Choose between a traditional 4-player team game or a 3-player individual game.
+                                </div>
+                            </div>
                             <div class="form-check form-switch mb-3">
                                 <input class="form-check-input" type="checkbox" id="is_public" name="is_public" checked>
                                 <label class="form-check-label" for="is_public">
@@ -287,6 +326,35 @@ document.addEventListener('DOMContentLoaded', function() {
                 lobbiesContainer.innerHTML = '<div class="alert alert-danger">Error refreshing lobbies. Please try again.</div>';
             });
     });
+    
+    // Handle game type switch toggle on click anywhere
+    const toggleSwitch = document.querySelector('.toggle-switch');
+    const gameTypeRadios = document.querySelectorAll('input[name="player_count_type"]');
+    
+    if (toggleSwitch && gameTypeRadios.length) {
+        toggleSwitch.addEventListener('click', function(e) {
+            // Prevent default if clicking on labels
+            if (e.target.tagName === 'LABEL') {
+                e.preventDefault();
+            }
+            
+            // Find currently checked radio
+            const currentChecked = document.querySelector('input[name="player_count_type"]:checked');
+            
+            // Toggle to the other option
+            if (currentChecked && currentChecked.value === '4') {
+                document.getElementById('createThreePlayer').checked = true;
+            } else {
+                document.getElementById('createFourPlayer').checked = true;
+            }
+            
+            // Trigger change event for any other listeners
+            const newChecked = document.querySelector('input[name="player_count_type"]:checked');
+            if (newChecked) {
+                newChecked.dispatchEvent(new Event('change', { bubbles: true }));
+            }
+        });
+    }
 });
 </script>
 {% endblock %}

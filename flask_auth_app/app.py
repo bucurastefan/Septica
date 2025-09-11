@@ -5,7 +5,7 @@ from flask_login import LoginManager, UserMixin, login_user, login_required, log
 from werkzeug.security import generate_password_hash, check_password_hash
 import os
 import sqlite3
-from datetime import datetime
+from datetime import datetime, timedelta
 import logging
 import random
 import string
@@ -69,10 +69,12 @@ class Lobby(db.Model):
     is_public = db.Column(db.Boolean, default=True)  
     game_started = db.Column(db.Boolean, default=False)  # New field to track if game has started
     owner_id = db.Column(db.Integer, db.ForeignKey('user.id'), nullable=False)
+    player_count_type = db.Column(db.Integer, default=4)  # 3 or 4 player game
     
     # Lobby statistics and game multiplier
     team1_wins = db.Column(db.Integer, default=0)  # Team 1 wins in lobby
     team2_wins = db.Column(db.Integer, default=0)  # Team 2 wins in lobby  
+    team3_wins = db.Column(db.Integer, default=0)  # Team 3 wins in lobby (for 3-player games)
     total_games_played = db.Column(db.Integer, default=0)  # Total number of games played
     next_game_multiplier = db.Column(db.Integer, default=1)  # Points multiplier for next game
     
@@ -96,12 +98,20 @@ class Lobby(db.Model):
         return [player for player in self.players if player.team == 2]
     
     @property
+    def team3_players(self):
+        return [player for player in self.players if player.team == 3]
+    
+    @property
     def unassigned_players(self):
         return [player for player in self.players if player.team == 0]
     
     @property
     def is_full(self):
-        return self.player_count >= 4
+        return self.player_count >= self.player_count_type
+    
+    @property
+    def max_teams(self):
+        return 3 if self.player_count_type == 3 else 2
     
     def get_next_starter_info(self):
         """Get information about who will start the next game"""
@@ -138,15 +148,28 @@ class Lobby(db.Model):
         # Count players in each team
         team1_count = len(self.team1_players)
         team2_count = len(self.team2_players)
+        team3_count = len(self.team3_players) if self.player_count_type == 3 else 0
         
-        # Assign to team with fewer players
-        if team1_count <= team2_count and team1_count < 2:
-            player.team = 1
-        elif team2_count < 2:
-            player.team = 2
+        if self.player_count_type == 3:
+            # For 3-player games, each team has 1 player
+            if team1_count == 0:
+                player.team = 1
+            elif team2_count == 0:
+                player.team = 2
+            elif team3_count == 0:
+                player.team = 3
+            else:
+                # All teams are full
+                return False
         else:
-            # Both teams are full
-            return False
+            # For 4-player games, assign to team with fewer players (max 2 per team)
+            if team1_count <= team2_count and team1_count < 2:
+                player.team = 1
+            elif team2_count < 2:
+                player.team = 2
+            else:
+                # Both teams are full
+                return False
         
         return True
 
@@ -156,7 +179,7 @@ class LobbyPlayer(db.Model):
     lobby_id = db.Column(db.Integer, db.ForeignKey('lobby.id'), nullable=False)
     user_id = db.Column(db.Integer, db.ForeignKey('user.id'), nullable=False)
     joined_at = db.Column(db.DateTime, default=datetime.utcnow)
-    team = db.Column(db.Integer, default=0)  # 0 = unassigned, 1 = team 1, 2 = team 2
+    team = db.Column(db.Integer, default=0)  # 0 = unassigned, 1 = team 1, 2 = team 2, 3 = team 3 (for 3-player games)
     voted_reset_stats = db.Column(db.Boolean, default=False)  # Track if player voted to reset stats
     
     # Relationships
@@ -262,6 +285,35 @@ def column_exists(table_name, column_name):
     except Exception as e:
         logger.error(f"Error checking column: {e}")
         return False
+
+def cleanup_guest_users():
+    """Clean up guest users that are older than 24 hours or have no active sessions"""
+    try:
+        from datetime import timedelta
+        
+        # Find guest users (users with temporary email pattern)
+        cutoff_time = datetime.utcnow() - timedelta(hours=24)
+        old_guest_users = User.query.filter(
+            User.email.like('guest_%@temporary.com'),
+            User.created_at < cutoff_time
+        ).all()
+        
+        for guest_user in old_guest_users:
+            # Remove user from any lobbies they're in
+            lobby_players = LobbyPlayer.query.filter_by(user_id=guest_user.id).all()
+            for lobby_player in lobby_players:
+                db.session.delete(lobby_player)
+            
+            # Delete the guest user
+            db.session.delete(guest_user)
+            logger.info(f"Cleaned up old guest user: {guest_user.username}")
+        
+        db.session.commit()
+        logger.info(f"Cleaned up {len(old_guest_users)} old guest users")
+        
+    except Exception as e:
+        logger.error(f"Error during guest user cleanup: {e}")
+        db.session.rollback()
 
 # Function to add is_admin column if it doesn't exist
 def add_is_admin_column():
@@ -448,6 +500,99 @@ def login():
     
     return render_template('login.html')
 
+@application.route('/guest_login', methods=['POST'])
+def guest_login():
+    """Allow guest users to play without registration"""
+    guest_name = request.form.get('guest_name', '').strip()
+    
+    if not guest_name:
+        flash('Please enter a guest name!', 'error')
+        return redirect(url_for('login'))
+    
+    if len(guest_name) > 20:
+        flash('Guest name must be 20 characters or less!', 'error')
+        return redirect(url_for('login'))
+    
+    # Check if guest name conflicts with existing usernames (including other guests)
+    existing_user = User.query.filter_by(username=guest_name).first()
+    if existing_user:
+        flash('This name is already taken. Please choose another name.', 'error')
+        return redirect(url_for('login'))
+    
+    try:
+        # Create a temporary user entry for the guest
+        guest_user = User(
+            username=guest_name,
+            email=f"guest_{datetime.utcnow().timestamp()}@temporary.com",  # Temporary email
+            password="guest_temp_password",  # Temporary password
+            is_admin=False
+        )
+        
+        db.session.add(guest_user)
+        db.session.commit()
+        
+        # Set session variables for guest user
+        session['username'] = guest_name
+        session['is_guest'] = True
+        session['guest_user_id'] = guest_user.id
+        session['is_admin'] = False
+        
+        flash(f'Welcome, {guest_name}! You are playing as a guest. Your data will be deleted when you leave.', 'success')
+        return redirect(url_for('lobbies'))
+        
+    except Exception as e:
+        logger.error(f"Error creating guest user: {e}")
+        flash('An error occurred while creating guest account. Please try again.', 'error')
+        return redirect(url_for('login'))
+
+@application.route('/convert_guest', methods=['GET', 'POST'])
+def convert_guest():
+    """Convert a guest account to a registered account"""
+    if not session.get('is_guest', False):
+        flash('This feature is only available for guest users.', 'error')
+        return redirect(url_for('lobbies'))
+    
+    if request.method == 'POST':
+        email = request.form.get('email')
+        password = request.form.get('password')
+        
+        if not email or not password:
+            flash('Please provide both email and password.', 'error')
+            return render_template('convert_guest.html')
+        
+        try:
+            # Check if email already exists
+            existing_user = User.query.filter_by(email=email).first()
+            if existing_user and not existing_user.email.startswith('guest_'):
+                flash('This email is already registered.', 'error')
+                return render_template('convert_guest.html')
+            
+            # Get the guest user
+            guest_user_id = session.get('guest_user_id')
+            guest_user = User.query.get(guest_user_id)
+            
+            if guest_user:
+                # Update the guest user to a regular user
+                guest_user.email = email
+                guest_user.password = generate_password_hash(password)
+                db.session.commit()
+                
+                # Update session
+                session['is_guest'] = False
+                session.pop('guest_user_id', None)
+                
+                flash('Your guest account has been converted to a registered account! Your game progress is now saved.', 'success')
+                return redirect(url_for('lobbies'))
+            else:
+                flash('Guest user not found.', 'error')
+                return redirect(url_for('login'))
+                
+        except Exception as e:
+            logger.error(f"Error converting guest account: {e}")
+            flash('An error occurred while converting your account. Please try again.', 'error')
+    
+    return render_template('convert_guest.html')
+
 @application.route('/register', methods=['GET', 'POST'])
 def register():
     if request.method == 'POST':
@@ -514,6 +659,11 @@ def statistics():
         flash('You need to be logged in to view statistics!', 'error')
         return redirect(url_for('login'))
     
+    # Check if user is a guest
+    if session.get('is_guest', False):
+        flash('Statistics are not available for guest users. Register for an account to track your progress!', 'info')
+        return redirect(url_for('lobbies'))
+    
     try:
         username = session.get('username')
         user = User.query.filter_by(username=username).first()
@@ -548,6 +698,27 @@ def statistics():
 
 @application.route('/logout')
 def logout():
+    try:
+        # Check if user is a guest and delete their data
+        if session.get('is_guest', False) and 'guest_user_id' in session:
+            guest_user_id = session['guest_user_id']
+            guest_user = User.query.get(guest_user_id)
+            
+            if guest_user:
+                # Remove user from any lobbies they're in
+                lobby_players = LobbyPlayer.query.filter_by(user_id=guest_user_id).all()
+                for lobby_player in lobby_players:
+                    db.session.delete(lobby_player)
+                
+                # Delete the guest user
+                db.session.delete(guest_user)
+                db.session.commit()
+                logger.info(f"Deleted guest user: {guest_user.username}")
+    
+    except Exception as e:
+        logger.error(f"Error deleting guest user during logout: {e}")
+        db.session.rollback()
+    
     logout_user()
     session.clear()
     flash('You have been logged out!', 'success')
@@ -765,6 +936,10 @@ def lobbies():
         username = session['username']
         user = User.query.filter_by(username=username).first()
         
+        if not user:
+            flash('User not found!', 'error')
+            return redirect(url_for('login'))
+        
         # Check for game completion message
         if username in game_completion_messages:
             message_data = game_completion_messages[username]
@@ -824,7 +999,13 @@ def create_lobby():
         # When checkbox is checked, it's included in the form data
         # When it's unchecked, it's missing entirely
         is_public = request.form.get('is_public') is not None
-        logger.debug(f"Creating lobby with is_public={is_public}")
+        
+        # Get player count type (3 or 4 players)
+        player_count_type = int(request.form.get('player_count_type', 4))
+        if player_count_type not in [3, 4]:
+            player_count_type = 4  # Default to 4 if invalid value
+        
+        logger.debug(f"Creating lobby with is_public={is_public}, player_count_type={player_count_type}")
         
         # Generate a unique code for the lobby
         lobby_code = generate_lobby_code()
@@ -838,7 +1019,8 @@ def create_lobby():
             name=lobby_name,
             owner_id=user.id,
             is_active=True,
-            is_public=is_public
+            is_public=is_public,
+            player_count_type=player_count_type
         )
         db.session.add(new_lobby)
         db.session.flush()  # Flush to get the lobby ID
@@ -1098,6 +1280,63 @@ def leave_lobby(lobby_code):
         flash('An error occurred while leaving lobby. Please try again.', 'error')
         return redirect(url_for('lobbies'))
 
+@application.route('/lobby/<lobby_code>/update_settings', methods=['POST'])
+def update_lobby_settings(lobby_code):
+    """Update lobby settings (only for lobby owner)"""
+    if 'username' not in session:
+        flash('Please login first!', 'error')
+        return redirect(url_for('login'))
+    
+    try:
+        username = session['username']
+        user = User.query.filter_by(username=username).first()
+        lobby = Lobby.query.filter_by(code=lobby_code, is_active=True).first()
+        
+        if not lobby:
+            flash('Lobby not found!', 'error')
+            return redirect(url_for('lobbies'))
+        
+        # Check if user is the lobby owner
+        if lobby.owner_id != user.id:
+            flash('Only the lobby owner can update settings!', 'error')
+            return redirect(url_for('lobby_detail', lobby_code=lobby_code))
+        
+        # Check if game has already started
+        if lobby.game_started:
+            flash('Cannot update settings after game has started!', 'error')
+            return redirect(url_for('lobby_detail', lobby_code=lobby_code))
+        
+        # Get new player count type
+        new_player_count_type = int(request.form.get('player_count_type', 4))
+        if new_player_count_type not in [3, 4]:
+            flash('Invalid game type!', 'error')
+            return redirect(url_for('lobby_detail', lobby_code=lobby_code))
+        
+        # If changing from 4-player to 3-player or vice versa, reset all team assignments
+        if lobby.player_count_type != new_player_count_type:
+            # Reset all players to unassigned
+            for player in lobby.players:
+                player.team = 0
+            
+            # Update lobby settings
+            lobby.player_count_type = new_player_count_type
+            
+            # Remove game type suffix from lobby name if it exists
+            if lobby.name and "(" in lobby.name:
+                lobby.name = lobby.name.split("(")[0].strip()
+            
+            db.session.commit()
+            flash(f'Lobby updated to {new_player_count_type}-player game! All team assignments have been reset.', 'success')
+        else:
+            flash('No changes made to lobby settings.', 'info')
+        
+        return redirect(url_for('lobby_detail', lobby_code=lobby_code))
+        
+    except Exception as e:
+        logger.error(f"Error updating lobby settings: {str(e)}")
+        flash('An error occurred while updating lobby settings. Please try again.', 'error')
+        return redirect(url_for('lobby_detail', lobby_code=lobby_code))
+
 @application.route('/lobby/<lobby_code>/start', methods=['POST'])
 def start_game(lobby_code):
     """Start the game and redirect players to the game page"""
@@ -1120,9 +1359,10 @@ def start_game(lobby_code):
             flash('Only the lobby owner can start the game!', 'error')
             return redirect(url_for('lobby_detail', lobby_code=lobby_code))
         
-        # Check if there are exactly 4 players
-        if lobby.player_count != 4:
-            flash('You need exactly 4 players to start the game!', 'error')
+        # Check if there are the correct number of players
+        required_players = lobby.player_count_type
+        if lobby.player_count != required_players:
+            flash(f'You need exactly {required_players} players to start the game!', 'error')
             return redirect(url_for('lobby_detail', lobby_code=lobby_code))
         
         # Check if all players are assigned to teams
@@ -1130,10 +1370,17 @@ def start_game(lobby_code):
             flash('All players must be assigned to a team before starting!', 'error')
             return redirect(url_for('lobby_detail', lobby_code=lobby_code))
         
-        # Check if teams are balanced (2 players per team)
-        if len(lobby.team1_players) != 2 or len(lobby.team2_players) != 2:
-            flash('Each team must have exactly 2 players!', 'error')
-            return redirect(url_for('lobby_detail', lobby_code=lobby_code))
+        # Check if teams are balanced based on game type
+        if lobby.player_count_type == 3:
+            # For 3-player games, each team should have exactly 1 player
+            if len(lobby.team1_players) != 1 or len(lobby.team2_players) != 1 or len(lobby.team3_players) != 1:
+                flash('Each team must have exactly 1 player in a 3-player game!', 'error')
+                return redirect(url_for('lobby_detail', lobby_code=lobby_code))
+        else:
+            # For 4-player games, each team should have exactly 2 players
+            if len(lobby.team1_players) != 2 or len(lobby.team2_players) != 2:
+                flash('Each team must have exactly 2 players in a 4-player game!', 'error')
+                return redirect(url_for('lobby_detail', lobby_code=lobby_code))
         
         # Mark the lobby as game started
         lobby.game_started = True
@@ -1898,5 +2145,9 @@ def handle_forfeit_hand(data):
 
 # Update the run statement to use SocketIO
 if __name__ == "__main__":
+    # Clean up old guest users on startup
+    with application.app_context():
+        cleanup_guest_users()
+    
     # Local development only
     socketio.run(application, host="0.0.0.0", port=5000, debug=True)

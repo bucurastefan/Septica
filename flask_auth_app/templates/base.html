@@ -65,9 +65,16 @@
                             </a>
                         </li>
                         <li class="nav-item">
+                            {% if session.get('is_guest', False) %}
+                            <span class="nav-link disabled text-muted">
+                                <i class="fas fa-user-ninja me-1"></i> {{ session['username'] }} 
+                                <small class="badge bg-secondary ms-1">Guest</small>
+                            </span>
+                            {% else %}
                             <a class="nav-link" href="{{ url_for('statistics') }}">
                                 <i class="fas fa-user me-1"></i> {{ session['username'] }}
                             </a>
+                            {% endif %}
                         </li>
                         <li class="nav-item">
                             <a class="nav-link" href="{{ url_for('logout') }}">

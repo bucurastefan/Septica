@@ -1105,7 +1105,7 @@ tbody tr:hover {
 
 [data-theme="dark"] .flash-message.alert-danger {
     border-left-color: var(--danger-color);
-    color: var,--danger-color);
+    color: var(--danger-color);
 }
 
 [data-theme="dark"] .flash-message.alert-warning {
@@ -1176,4 +1176,116 @@ tbody tr:hover {
     top: 50%;
     margin: 0;  /* Remove default margins */
     transform-origin: center center;
+}
+
+/* Game Type Switch - Compact Design */
+.game-type-switch-container {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 8px;
+}
+
+.toggle-switch {
+    position: relative;
+    width: 200px;
+    height: 40px;
+    background: rgba(255, 255, 255, 0.1);
+    border-radius: 20px;
+    overflow: hidden;
+    cursor: pointer;
+}
+
+.toggle-switch input[type="radio"] {
+    position: absolute;
+    opacity: 0;
+    pointer-events: none;
+}
+
+.switch-option {
+    position: absolute;
+    top: 0;
+    width: 50%;
+    height: 100%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 0.85rem;
+    font-weight: 600;
+    cursor: pointer;
+    z-index: 2;
+    transition: color 0.3s ease;
+    color: var(--text-color);
+}
+
+.switch-option.left {
+    left: 0;
+}
+
+.switch-option.right {
+    right: 0;
+}
+
+.switch-slider {
+    position: absolute;
+    top: 2px;
+    left: 2px;
+    width: calc(50% - 4px);
+    height: calc(100% - 4px);
+    background: linear-gradient(90deg, var(--primary-color), var(--secondary-color));
+    border-radius: 18px;
+    transition: transform 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+    box-shadow: 0 2px 8px rgba(var(--primary-color-rgb), 0.3);
+}
+
+.toggle-switch input[name="player_count_type"]:nth-of-type(2):checked ~ .switch-slider {
+    transform: translateX(100%);
+}
+
+.toggle-switch input:checked + input + label.left,
+.toggle-switch input + input:checked + label + label.right {
+    color: white;
+}
+
+/* Animation for state changes */
+.game-type-label {
+    overflow: hidden;
+}
+
+.game-type-label::before {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: -100%;
+    width: 100%;
+    height: 100%;
+    background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.2), transparent);
+    transition: left 0.5s;
+}
+
+.game-type-radio:checked + .game-type-label::before {
+    left: 100%;
+}
+
+/* Responsive design */
+@media (max-width: 576px) {
+    .game-type-options {
+        flex-direction: column;
+    }
+    
+    .game-type-label:first-child {
+        border-radius: 8px 8px 0 0;
+        border-right: 2px solid var(--input-border);
+        border-bottom: 1px solid var(--input-border);
+    }
+    
+    .game-type-label:last-child {
+        border-radius: 0 0 8px 8px;
+        border-left: 2px solid var(--input-border);
+        border-top: 1px solid var(--input-border);
+    }
+    
+    .game-type-content {
+        padding: 5px 0;
+    }
 }

@@ -1,97 +1,561 @@
 {% extends "base.html" %}
 
-{% block title %}Lobby {{ lobby.code }} - Șeptică{% endblock %}
+{% block title %}{{ lobby.name or 'Lobby ' + lobby.code }} - Șeptică{% endblock %}
 
 {% block content %}
 <div class="container animate-fade-in">
-    <h1 class="page-title text-center mb-4">Lobby Details</h1>
-    
+    <!-- Header Section -->
+    <div class="row mb-4">
+        <div class="col-12">
+            <div class="card shadow-sm">
+                <div class="card-body p-4">
+                    <div class="d-flex justify-content-between align-items-start flex-wrap">
+                        <div class="mb-3 mb-md-0">
+                            <h2 class="mb-2">
+                                <i class="fas fa-gamepad me-2 text-primary"></i>
+                                {{ lobby.name or 'Lobby ' + lobby.code }}
+                            </h2>
+                            <div class="d-flex align-items-center gap-3 flex-wrap">
+                                <span class="badge bg-info fs-6 px-3 py-2">
+                                    <i class="fas fa-users me-1"></i>
+                                    {{ lobby.player_count }}/{{ lobby.player_count_type }} Players
+                                </span>
+                                {% if lobby.is_public %}
+                                    <span class="badge bg-success fs-6 px-3 py-2">
+                                        <i class="fas fa-globe me-1"></i> Public
+                                    </span>
+                                {% else %}
+                                    <span class="badge bg-secondary fs-6 px-3 py-2">
+                                        <i class="fas fa-lock me-1"></i> Private
+                                    </span>
+                                {% endif %}
+                                <div class="lobby-code-section">
+                                    <strong>Code:</strong> 
+                                    <span id="lobbyCode" class="fw-bold text-primary fs-5 me-2">{{ lobby.code }}</span>
+                                    <button class="btn btn-outline-primary btn-sm" onclick="copyLobbyCode()">
+                                        <i class="fas fa-clipboard me-1"></i> Copy
+                                    </button>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="action-buttons d-flex gap-2 flex-wrap">
+                            {% if lobby.owner_id == user.id %}
+                                <button class="btn btn-success" id="startGameBtn" onclick="startGame()" 
+                                        {% if lobby.player_count < lobby.player_count_type %}disabled{% endif %}>
+                                    <i class="fas fa-play me-1"></i> Start Game
+                                </button>
+                            {% endif %}
+                            <a href="{{ url_for('lobbies') }}" class="btn btn-outline-secondary">
+                                <i class="fas fa-arrow-left me-1"></i> Back
+                            </a>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
     <div class="row">
+        <!-- Main Game Area -->
         <div class="col-lg-8">
-            <div class="card shadow mb-4">
-                <div class="card-header d-flex justify-content-between align-items-center">
-                    <h4 class="mb-0">
-                        <i class="fas fa-gamepad me-2"></i>
-                        {{ lobby.name or 'Lobby #' + lobby.code }}
-                        {% if lobby.is_public %}
-                            <span class="badge bg-success">
-                                <i class="fas fa-globe me-1"></i> Public
-                            </span>
-                        {% else %}
-                            <span class="badge bg-secondary">
-                                <i class="fas fa-lock me-1"></i> Private
-                            </span>
+            <!-- Teams & Players Section -->
+            <div class="card shadow-sm mb-4">
+                <div class="card-header">
+                    <h5 class="mb-0">
+                        <i class="fas fa-users me-2"></i> 
+                        Teams & Players
+                        {% if lobby.owner_id == user.id and lobby.player_count > 0 %}
+                            <button class="btn btn-warning btn-sm float-end" id="vote-reset-btn" onclick="initiateVoteReset()">
+                                <i class="fas fa-vote-yea me-1"></i> Vote Reset (0/{{ lobby.player_count_type }})
+                            </button>
                         {% endif %}
-                    </h4>
-                    <button class="btn btn-purple btn-sm" onclick="copyLobbyCode()">
-                        <i class="fas fa-clipboard me-1"></i> Copy Code
-                    </button>
+                    </h5>
                 </div>
                 <div class="card-body">
-                    <div class="alert alert-info mb-4">
-                        <div class="d-flex align-items-center">
-                            <i class="fas fa-info-circle me-3 fa-2x"></i>
-                            <div class="flex-grow-1">
-                                <strong>Lobby Code:</strong> <span id="lobbyCode" class="fw-bold fs-5">{{ lobby.code }}</span>
-                                <p class="mb-0 mt-2">Share this code with friends so they can join your lobby!</p>
+                    <!-- Vote Reset Progress (Hidden by default) -->
+                    <div id="vote-progress" style="display: none;" class="mb-3">
+                        <div class="alert alert-warning">
+                            <h6><i class="fas fa-vote-yea me-2"></i>Team Reset Vote in Progress</h6>
+                            <div class="progress mb-2">
+                                <div class="progress-bar bg-warning" role="progressbar" style="width: {{ (total_votes / lobby.player_count_type) * 100 }}%" id="vote-progress-bar"></div>
+                            </div>
+                            <div id="voters-list">
+                                <small>Voters: 
+                                    {% for voter in votes %}
+                                        <span class="badge bg-secondary me-1">{{ voter.user.username }}</span>
+                                    {% endfor %}
+                                </small>
                             </div>
                         </div>
                     </div>
-                    
-                    <!-- Teams Section -->
+
                     {% if lobby.player_count_type == 3 %}
-                        <!-- 3-Player Game: 3 Teams, 1 player each -->
-                        <div class="row mb-4">
-                            <div class="col-md-4 mb-3">
-                                <div class="card text-white" style="background-color: #6f42c1;">  <!-- Team Purple -->
-                                    <div class="card-header">
-                                        <h5 class="mb-0"><i class="fas fa-user me-2"></i> Team Purple (<span id="team1-count">{{ lobby.team1_players|length }}</span>/1)</h5>
+                        <!-- 3-Player Teams Layout -->
+                        <div class="row g-3">
+                            <div class="col-md-4">
+                                <div class="team-card purple">
+                                    <div class="team-header">
+                                        <h6><i class="fas fa-user me-2"></i>Team Purple ({{ lobby.team1_players|length }}/1)</h6>
                                     </div>
-                                    <ul class="list-group list-group-flush" id="team1-list">
+                                    <div class="team-players" id="team1-list">
                                         {% for player in lobby.team1_players %}
-                                            <li class="list-group-item d-flex justify-content-between align-items-center team-player-item" data-user-id="{{ player.user.id }}" data-username="{{ player.user.username }}" data-team="1">
-                                                <div>
-                                                    <i class="fas fa-user me-2"></i>
-                                                    <span class="fw-bold">{{ player.user.username }}</span>
-                                                </div>
-                                                <div class="d-flex align-items-center flex-wrap">
-                                                    {% if player.user.id == lobby.owner_id %}
-                                                        <span class="badge bg-warning text-dark me-2 mb-1">
-                                                            <i class="fas fa-crown me-1"></i> Owner
-                                                        </span>
-                                                    {% endif %}
-                                                    {% if player.user.id == user.id %}
-                                                        <form method="POST" action="{{ url_for('change_team', lobby_code=lobby.code) }}" class="d-inline">
-                                                            <input type="hidden" name="team" value="0">
-                                                            <button type="submit" class="btn btn-sm btn-outline-secondary team-leave-btn mb-1">
-                                                                Leave Team
-                                                            </button>
-                                                        </form>
-                                                    {% endif %}
-                                                </div>
-                                            </li>
-                                        {% else %}
-                                            <li class="list-group-item text-muted">No player in Team Purple</li>
+                                        <div class="player-item">
+                                            <span class="player-name">{{ player.user.username }}</span>
+                                            {% if player.user.id == lobby.owner_id %}
+                                                <span class="badge bg-warning ms-1">Owner</span>
+                                            {% endif %}
+                                        </div>
                                         {% endfor %}
-                                    </ul>
+                                        {% if lobby.team1_players|length == 0 %}
+                                        <div class="empty-team">No players assigned</div>
+                                        {% endif %}
+                                    </div>
                                 </div>
                             </div>
-                            <div class="col-md-4 mb-3">
-                                <div class="card text-white" style="background-color: #5e5e5e;">  <!-- Team Black -->
-                                    <div class="card-header">
-                                        <h5 class="mb-0"><i class="fas fa-user me-2"></i> Team Black (<span id="team2-count">{{ lobby.team2_players|length }}</span>/1)</h5>
+                            <div class="col-md-4">
+                                <div class="team-card black">
+                                    <div class="team-header">
+                                        <h6><i class="fas fa-user me-2"></i>Team Black ({{ lobby.team2_players|length }}/1)</h6>
                                     </div>
-                                    <ul class="list-group list-group-flush" id="team2-list">
+                                    <div class="team-players" id="team2-list">
                                         {% for player in lobby.team2_players %}
-                                            <li class="list-group-item d-flex justify-content-between align-items-center team-player-item" data-user-id="{{ player.user.id }}" data-username="{{ player.user.username }}" data-team="2">
-                                                <div>
-                                                    <i class="fas fa-user me-2"></i>
-                                                    <span class="fw-bold">{{ player.user.username }}</span>
-                                                </div>
-                                                <div class="d-flex align-items-center flex-wrap">
-                                                    {% if player.user.id == lobby.owner_id %}
-                                                        <span class="badge bg-warning text-dark me-2 mb-1">
-                                                            <i class="fas fa-crown me-1"></i> Owner
+                                        <div class="player-item">
+                                            <span class="player-name">{{ player.user.username }}</span>
+                                            {% if player.user.id == lobby.owner_id %}
+                                                <span class="badge bg-warning ms-1">Owner</span>
+                                            {% endif %}
+                                        </div>
+                                        {% endfor %}
+                                        {% if lobby.team2_players|length == 0 %}
+                                        <div class="empty-team">No players assigned</div>
+                                        {% endif %}
+                                    </div>
+                                </div>
+                            </div>
+                            <div class="col-md-4">
+                                <div class="team-card green">
+                                    <div class="team-header">
+                                        <h6><i class="fas fa-user me-2"></i>Team Green ({{ lobby.team3_players|length }}/1)</h6>
+                                    </div>
+                                    <div class="team-players" id="team3-list">
+                                        {% for player in lobby.team3_players %}
+                                        <div class="player-item">
+                                            <span class="player-name">{{ player.user.username }}</span>
+                                            {% if player.user.id == lobby.owner_id %}
+                                                <span class="badge bg-warning ms-1">Owner</span>
+                                            {% endif %}
+                                        </div>
+                                        {% endfor %}
+                                        {% if lobby.team3_players|length == 0 %}
+                                        <div class="empty-team">No players assigned</div>
+                                        {% endif %}
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    {% else %}
+                        <!-- 4-Player Teams Layout -->
+                        <div class="row g-3">
+                            <div class="col-md-6">
+                                <div class="team-card purple">
+                                    <div class="team-header">
+                                        <h6><i class="fas fa-users me-2"></i>Team Purple ({{ lobby.team1_players|length }}/2)</h6>
+                                    </div>
+                                    <div class="team-players" id="team1-list">
+                                        {% for player in lobby.team1_players %}
+                                        <div class="player-item">
+                                            <span class="player-name">{{ player.user.username }}</span>
+                                            {% if player.user.id == lobby.owner_id %}
+                                                <span class="badge bg-warning ms-1">Owner</span>
+                                            {% endif %}
+                                        </div>
+                                        {% endfor %}
+                                        {% if lobby.team1_players|length == 0 %}
+                                        <div class="empty-team">No players assigned</div>
+                                        {% endif %}
+                                    </div>
+                                </div>
+                            </div>
+                            <div class="col-md-6">
+                                <div class="team-card black">
+                                    <div class="team-header">
+                                        <h6><i class="fas fa-users me-2"></i>Team Black ({{ lobby.team2_players|length }}/2)</h6>
+                                    </div>
+                                    <div class="team-players" id="team2-list">
+                                        {% for player in lobby.team2_players %}
+                                        <div class="player-item">
+                                            <span class="player-name">{{ player.user.username }}</span>
+                                            {% if player.user.id == lobby.owner_id %}
+                                                <span class="badge bg-warning ms-1">Owner</span>
+                                            {% endif %}
+                                        </div>
+                                        {% endfor %}
+                                        {% if lobby.team2_players|length == 0 %}
+                                        <div class="empty-team">No players assigned</div>
+                                        {% endif %}
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    {% endif %}
+
+                    <!-- Unassigned Players -->
+                    {% if lobby.unassigned_players|length > 0 %}
+                    <div class="mt-4">
+                        <div class="unassigned-section">
+                            <h6 class="mb-3">
+                                <i class="fas fa-user-plus me-2"></i> 
+                                Unassigned Players ({{ lobby.unassigned_players|length }})
+                            </h6>
+                            <div class="unassigned-players" id="unassigned-list">
+                                {% for player in lobby.unassigned_players %}
+                                <div class="player-item unassigned" data-user-id="{{ player.user.id }}">
+                                    <span class="player-name">{{ player.user.username }}</span>
+                                    {% if player.user.id == lobby.owner_id %}
+                                        <span class="badge bg-warning ms-1">Owner</span>
+                                    {% endif %}
+                                    {% if lobby.player_count_type == 3 %}
+                                        <div class="team-actions">
+                                            <button class="btn btn-sm btn-outline-primary" onclick="joinTeam({{ player.user.id }}, 1)">Purple</button>
+                                            <button class="btn btn-sm btn-outline-dark" onclick="joinTeam({{ player.user.id }}, 2)">Black</button>
+                                            <button class="btn btn-sm btn-outline-success" onclick="joinTeam({{ player.user.id }}, 3)">Green</button>
+                                        </div>
+                                    {% else %}
+                                        <div class="team-actions">
+                                            <button class="btn btn-sm btn-outline-primary" onclick="joinTeam({{ player.user.id }}, 1)">Purple</button>
+                                            <button class="btn btn-sm btn-outline-dark" onclick="joinTeam({{ player.user.id }}, 2)">Black</button>
+                                        </div>
+                                    {% endif %}
+                                </div>
+                                {% endfor %}
+                            </div>
+                        </div>
+                    </div>
+                    {% endif %}
+
+                    <!-- Game Status Messages -->
+                    {% if lobby.player_count < lobby.player_count_type %}
+                    <div class="alert alert-info mt-4">
+                        <i class="fas fa-info-circle me-2"></i>
+                        Waiting for {{ lobby.player_count_type - lobby.player_count }} more player(s) to join.
+                    </div>
+                    {% elif not (lobby.team1_players|length >= 1 and lobby.team2_players|length >= 1 and (lobby.player_count_type == 3 and lobby.team3_players|length >= 1 or lobby.player_count_type == 4)) %}
+                    <div class="alert alert-warning mt-4">
+                        <i class="fas fa-exclamation-triangle me-2"></i>
+                        All players must be assigned to teams before starting the game.
+                    </div>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+
+        <!-- Sidebar -->
+        <div class="col-lg-4">
+            <!-- Settings Panel -->
+            {% if lobby.owner_id == user.id %}
+            <div class="card shadow-sm mb-4">
+                <div class="card-header">
+                    <h6 class="mb-0"><i class="fas fa-cog me-2"></i>Lobby Settings</h6>
+                </div>
+                <div class="card-body">
+                    <form method="POST" action="{{ url_for('update_lobby_settings', lobby_code=lobby.code) }}">
+                        <div class="mb-3">
+                            <label class="form-label">Game Type</label>
+                            <div class="game-type-switch-container">
+                                <div class="toggle-switch">
+                                    <input type="radio" name="player_count_type" id="fourPlayer" value="4" {% if lobby.player_count_type == 4 %}checked{% endif %}>
+                                    <input type="radio" name="player_count_type" id="threePlayer" value="3" {% if lobby.player_count_type == 3 %}checked{% endif %}>
+                                    <label for="fourPlayer" class="switch-option left">4-Player</label>
+                                    <label for="threePlayer" class="switch-option right">3-Player</label>
+                                    <div class="switch-slider"></div>
+                                </div>
+                            </div>
+                            <div class="form-text mt-2">
+                                {% if lobby.player_count > 0 %}
+                                    <i class="fas fa-exclamation-triangle text-warning me-1"></i>
+                                    Changing game type will reset all team assignments.
+                                {% endif %}
+                            </div>
+                        </div>
+                        <button type="submit" class="btn btn-warning btn-sm w-100">
+                            <i class="fas fa-save me-1"></i>Update Settings
+                        </button>
+                    </form>
+                </div>
+            </div>
+            {% endif %}
+
+            <!-- Game Info -->
+            <div class="card shadow-sm mb-4">
+                <div class="card-header">
+                    <h6 class="mb-0"><i class="fas fa-info-circle me-2"></i>Game Information</h6>
+                </div>
+                <div class="card-body">
+                    <div class="info-item">
+                        <h6 class="text-primary mb-2">How Teams Work:</h6>
+                        {% if lobby.player_count_type == 3 %}
+                        <ul class="list-unstyled small">
+                            <li><i class="fas fa-user text-purple me-2"></i>Each player is their own team</li>
+                            <li><i class="fas fa-trophy text-warning me-2"></i>Individual competition</li>
+                            <li><i class="fas fa-star text-success me-2"></i>First to win gets the victory</li>
+                        </ul>
+                        {% else %}
+                        <ul class="list-unstyled small">
+                            <li><i class="fas fa-users text-purple me-2"></i>Purple Team: 2 players</li>
+                            <li><i class="fas fa-users text-dark me-2"></i>Black Team: 2 players</li>
+                            <li><i class="fas fa-handshake text-warning me-2"></i>Team members work together</li>
+                            <li><i class="fas fa-trophy text-success me-2"></i>First team to win gets victory</li>
+                        </ul>
+                        {% endif %}
+                    </div>
+                    
+                    {% if lobby.owner_id == user.id %}
+                    <div class="alert alert-success p-2 mt-3">
+                        <small><i class="fas fa-crown me-1"></i><strong>You are the lobby owner!</strong><br>
+                        Start the game when all players are ready.</small>
+                    </div>
+                    {% endif %}
+                </div>
+            </div>
+
+            <!-- Statistics -->
+            <div class="card shadow-sm mb-4">
+                <div class="card-header">
+                    <h6 class="mb-0"><i class="fas fa-chart-bar me-2"></i>Lobby Statistics</h6>
+                </div>
+                <div class="card-body text-center">
+                    <div class="row g-3">
+                        <div class="col-4">
+                            <div class="stat-item">
+                                <div class="stat-number text-purple">{{ lobby.team1_wins }}</div>
+                                <div class="stat-label">Purple</div>
+                            </div>
+                        </div>
+                        <div class="col-4">
+                            <div class="stat-item">
+                                <div class="stat-number text-dark">{{ lobby.team2_wins }}</div>
+                                <div class="stat-label">Black</div>
+                            </div>
+                        </div>
+                        <div class="col-4">
+                            <div class="stat-item">
+                                {% if lobby.player_count_type == 3 %}
+                                    <div class="stat-number text-success">{{ lobby.team3_wins }}</div>
+                                    <div class="stat-label">Green</div>
+                                {% else %}
+                                    <div class="stat-number text-info">{{ lobby.team1_wins + lobby.team2_wins }}</div>
+                                    <div class="stat-label">Total</div>
+                                {% endif %}
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Quick Actions -->
+            <div class="card shadow-sm">
+                <div class="card-body">
+                    <div class="d-grid gap-2">
+                        <button class="btn btn-outline-danger btn-sm" onclick="leaveLobby()">
+                            <i class="fas fa-sign-out-alt me-1"></i>Leave Lobby
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+// Copy lobby code function
+function copyLobbyCode() {
+    const lobbyCode = document.getElementById('lobbyCode').textContent;
+    navigator.clipboard.writeText(lobbyCode).then(() => {
+        showMessage('Lobby code copied to clipboard!', 'success');
+    });
+}
+
+// Show message function
+function showMessage(message, type) {
+    const alertDiv = document.createElement('div');
+    alertDiv.className = `alert alert-${type} alert-dismissible fade show position-fixed`;
+    alertDiv.style.cssText = 'top: 20px; right: 20px; z-index: 9999; min-width: 300px;';
+    alertDiv.innerHTML = `
+        ${message}
+        <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+    `;
+    document.body.appendChild(alertDiv);
+    setTimeout(() => alertDiv.remove(), 3000);
+}
+
+// Join team function
+function joinTeam(userId, teamNumber) {
+    fetch('{{ url_for("change_team", lobby_code=lobby.code) }}', {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/x-www-form-urlencoded',
+        },
+        body: `user_id=${userId}&team=${teamNumber}`
+    })
+    .then(response => response.json())
+    .then(data => {
+        if (data.success) {
+            location.reload();
+        } else {
+            showMessage(data.message || 'Error joining team', 'danger');
+        }
+    })
+    .catch(error => {
+        console.error('Error:', error);
+        showMessage('Error joining team', 'danger');
+    });
+}
+
+// Start game function
+function startGame() {
+    if (confirm('Are you sure you want to start the game?')) {
+        fetch('{{ url_for("start_game", lobby_code=lobby.code) }}', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+            }
+        })
+        .then(response => response.json())
+        .then(data => {
+            if (data.success) {
+                window.location.href = data.redirect_url;
+            } else {
+                showMessage(data.message || 'Error starting game', 'danger');
+            }
+        })
+        .catch(error => {
+            console.error('Error:', error);
+            showMessage('Error starting game', 'danger');
+        });
+    }
+}
+
+// Leave lobby function
+function leaveLobby() {
+    if (confirm('Are you sure you want to leave this lobby?')) {
+        fetch('{{ url_for("leave_lobby", lobby_code=lobby.code) }}', {
+            method: 'POST'
+        })
+        .then(response => response.json())
+        .then(data => {
+            if (data.success) {
+                window.location.href = '{{ url_for("lobbies") }}';
+            } else {
+                showMessage(data.message || 'Error leaving lobby', 'danger');
+            }
+        })
+        .catch(error => {
+            console.error('Error:', error);
+            showMessage('Error leaving lobby', 'danger');
+        });
+    }
+}
+
+// Vote reset function
+function initiateVoteReset() {
+    if (confirm('This will reset all team assignments. Continue?')) {
+        fetch('{{ url_for("vote_team_reset", lobby_code=lobby.code) }}', {
+            method: 'POST'
+        })
+        .then(response => response.json())
+        .then(data => {
+            if (data.success) {
+                showMessage(data.message, 'success');
+                updateVoteProgress(data);
+            } else {
+                showMessage(data.message || 'Error voting for reset', 'danger');
+            }
+        })
+        .catch(error => {
+            console.error('Error:', error);
+            showMessage('Error voting for reset', 'danger');
+        });
+    }
+}
+
+// Update vote progress
+function updateVoteProgress(data) {
+    const voteProgress = document.getElementById('vote-progress');
+    const progressBar = document.getElementById('vote-progress-bar');
+    const votersList = document.getElementById('voters-list');
+    
+    if (data.votes && data.votes.length > 0) {
+        voteProgress.style.display = 'block';
+        const percentage = (data.votes.length / {{ lobby.player_count_type }}) * 100;
+        progressBar.style.width = percentage + '%';
+        
+        const votersHtml = data.votes.map(vote => 
+            `<span class="badge bg-secondary me-1">${vote.username}</span>`
+        ).join('');
+        votersList.innerHTML = `<small>Voters: ${votersHtml}</small>`;
+    }
+}
+
+// Socket.IO event handlers
+const socket = io();
+
+socket.on('player_joined', function(data) {
+    location.reload();
+});
+
+socket.on('player_left', function(data) {
+    location.reload();
+});
+
+socket.on('team_changed', function(data) {
+    location.reload();
+});
+
+socket.on('game_started', function(data) {
+    window.location.href = data.redirect_url;
+});
+
+socket.on('vote_update', function(data) {
+    updateVoteProgress(data);
+});
+
+socket.on('teams_reset', function(data) {
+    showMessage('Teams have been reset!', 'info');
+    location.reload();
+});
+
+// Handle game type switch toggle on click anywhere
+document.addEventListener('DOMContentLoaded', function() {
+    const toggleSwitch = document.querySelector('.toggle-switch');
+    const gameTypeRadios = document.querySelectorAll('input[name="player_count_type"]');
+    
+    if (toggleSwitch && gameTypeRadios.length) {
+        toggleSwitch.addEventListener('click', function(e) {
+            // Prevent default if clicking on labels
+            if (e.target.tagName === 'LABEL') {
+                e.preventDefault();
+            }
+            
+            // Find currently checked radio
+            const currentChecked = document.querySelector('input[name="player_count_type"]:checked');
+            
+            // Toggle to the other option
+            if (currentChecked && currentChecked.value === '4') {
+                document.getElementById('threePlayer').checked = true;
+            } else {
+                document.getElementById('fourPlayer').checked = true;
+            }
+            
+            // Trigger change event for any other listeners
+            const newChecked = document.querySelector('input[name="player_count_type"]:checked');
+            if (newChecked) {
+                newChecked.dispatchEvent(new Event('change', { bubbles: true }));
+            }
+        });
+    }
+});
+</script>
+{% endblock %}
                                                         </span>
                                                     {% endif %}
                                                     {% if player.user.id == user.id %}

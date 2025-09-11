@@ -33,6 +33,27 @@
                             </button>
                         </div>
                     </form>
+                    
+                    <hr class="my-3">
+                    
+                    <!-- Guest Login Section -->
+                    <div class="text-center">
+                        <h6 class="mb-3">Or play as a guest</h6>
+                        <form method="POST" action="{{ url_for('guest_login') }}">
+                            <div class="form-group mb-3">
+                                <div class="input-group">
+                                    <span class="input-group-text"><i class="fas fa-user-ninja"></i></span>
+                                    <input type="text" class="form-control" name="guest_name" placeholder="Enter guest name" required maxlength="20">
+                                </div>
+                                <small class="form-text text-muted">Guest data will be deleted after session ends</small>
+                            </div>
+                            <div class="d-grid">
+                                <button type="submit" class="btn btn-outline-primary">
+                                    <i class="fas fa-user-ninja me-2"></i> Play as Guest
+                                </button>
+                            </div>
+                        </form>
+                    </div>
                 </div>
                 <div class="card-footer text-center py-3">
                     <p class="mb-0">Don't have an account? <a href="{{ url_for('register') }}" class="fw-bold">Register here</a></p>

@@ -40,110 +40,52 @@
                     
                     <!-- Teams Section -->
                     {% if lobby.player_count_type == 3 %}
-                        <!-- 3-Player Game: 3 Teams, 1 player each -->
+                        <!-- 3-Player: seats are auto-assigned, display only (no join/leave buttons) -->
+                        <div class="alert alert-info mb-3 py-2">
+                            <i class="fas fa-info-circle me-2"></i>
+                            <strong>Seats are assigned automatically</strong> as players join.
+                        </div>
                         <div class="row mb-4">
+                            {% set seats = [
+                                ('team1-list', 'team1-count', lobby.team1_players, '#6f42c1', 'Purple', 1),
+                                ('team2-list', 'team2-count', lobby.team2_players, '#5e5e5e', 'Black',  2),
+                                ('team3-list', 'team3-count', lobby.team3_players, '#0d6efd', 'Blue',   3)
+                            ] %}
+                            {% for list_id, count_id, players, color, label, team_num in seats %}
                             <div class="col-md-4 mb-3">
-                                <div class="card text-white" style="background-color: #6f42c1;">  <!-- Team Purple -->
+                                <div class="card text-white" style="background-color: {{ color }};">
                                     <div class="card-header">
-                                        <h5 class="mb-0"><i class="fas fa-user me-2"></i> Team Purple (<span id="team1-count">{{ lobby.team1_players|length }}</span>/1)</h5>
+                                        <h5 class="mb-0">
+                                            <i class="fas fa-user me-2"></i>
+                                            {{ label }}
+                                            (<span id="{{ count_id }}">{{ players|length }}</span>/1)
+                                        </h5>
                                     </div>
-                                    <ul class="list-group list-group-flush" id="team1-list">
-                                        {% for player in lobby.team1_players %}
-                                            <li class="list-group-item d-flex justify-content-between align-items-center team-player-item" data-user-id="{{ player.user.id }}" data-username="{{ player.user.username }}" data-team="1">
+                                    <ul class="list-group list-group-flush" id="{{ list_id }}">
+                                        {% for player in players %}
+                                            <li class="list-group-item d-flex justify-content-between align-items-center team-player-item"
+                                                data-user-id="{{ player.user.id }}"
+                                                data-username="{{ player.user.username }}"
+                                                data-team="{{ team_num }}">
                                                 <div>
                                                     <i class="fas fa-user me-2"></i>
                                                     <span class="fw-bold">{{ player.user.username }}</span>
                                                 </div>
-                                                <div class="d-flex align-items-center flex-wrap">
-                                                    {% if player.user.id == lobby.owner_id %}
-                                                        <span class="badge bg-warning text-dark me-2 mb-1">
-                                                            <i class="fas fa-crown me-1"></i> Owner
-                                                        </span>
-                                                    {% endif %}
-                                                    {% if player.user.id == user.id %}
-                                                        <form method="POST" action="{{ url_for('change_team', lobby_code=lobby.code) }}" class="d-inline">
-                                                            <input type="hidden" name="team" value="0">
-                                                            <button type="submit" class="btn btn-sm btn-outline-secondary team-leave-btn mb-1">
-                                                                Leave Team
-                                                            </button>
-                                                        </form>
-                                                    {% endif %}
-                                                </div>
+                                                {% if player.user.id == lobby.owner_id %}
+                                                    <span class="badge bg-warning text-dark">
+                                                        <i class="fas fa-crown me-1"></i> Owner
+                                                    </span>
+                                                {% endif %}
                                             </li>
                                         {% else %}
-                                            <li class="list-group-item text-muted">No player in Team Purple</li>
+                                            <li class="list-group-item text-muted">
+                                                <i class="fas fa-hourglass-half me-1"></i> Waiting…
+                                            </li>
                                         {% endfor %}
                                     </ul>
                                 </div>
                             </div>
-                            <div class="col-md-4 mb-3">
-                                <div class="card text-white" style="background-color: #5e5e5e;">  <!-- Team Black -->
-                                    <div class="card-header">
-                                        <h5 class="mb-0"><i class="fas fa-user me-2"></i> Team Black (<span id="team2-count">{{ lobby.team2_players|length }}</span>/1)</h5>
-                                    </div>
-                                    <ul class="list-group list-group-flush" id="team2-list">
-                                        {% for player in lobby.team2_players %}
-                                            <li class="list-group-item d-flex justify-content-between align-items-center team-player-item" data-user-id="{{ player.user.id }}" data-username="{{ player.user.username }}" data-team="2">
-                                                <div>
-                                                    <i class="fas fa-user me-2"></i>
-                                                    <span class="fw-bold">{{ player.user.username }}</span>
-                                                </div>
-                                                <div class="d-flex align-items-center flex-wrap">
-                                                    {% if player.user.id == lobby.owner_id %}
-                                                        <span class="badge bg-warning text-dark me-2 mb-1">
-                                                            <i class="fas fa-crown me-1"></i> Owner
-                                                        </span>
-                                                    {% endif %}
-                                                    {% if player.user.id == user.id %}
-                                                        <form method="POST" action="{{ url_for('change_team', lobby_code=lobby.code) }}" class="d-inline">
-                                                            <input type="hidden" name="team" value="0">
-                                                            <button type="submit" class="btn btn-sm btn-outline-secondary team-leave-btn mb-1">
-                                                                Leave Team
-                                                            </button>
-                                                        </form>
-                                                    {% endif %}
-                                                </div>
-                                            </li>
-                                        {% else %}
-                                            <li class="list-group-item text-muted">No player in Team Black</li>
-                                        {% endfor %}
-                                    </ul>
-                                </div>
-                            </div>
-                            <div class="col-md-4 mb-3">
-                                <div class="card text-white" style="background-color: #dc3545;">  <!-- Team Red -->
-                                    <div class="card-header">
-                                        <h5 class="mb-0"><i class="fas fa-user me-2"></i> Team Red (<span id="team3-count">{{ lobby.team3_players|length }}</span>/1)</h5>
-                                    </div>
-                                    <ul class="list-group list-group-flush" id="team3-list">
-                                        {% for player in lobby.team3_players %}
-                                            <li class="list-group-item d-flex justify-content-between align-items-center team-player-item" data-user-id="{{ player.user.id }}" data-username="{{ player.user.username }}" data-team="3">
-                                                <div>
-                                                    <i class="fas fa-user me-2"></i>
-                                                    <span class="fw-bold">{{ player.user.username }}</span>
-                                                </div>
-                                                <div class="d-flex align-items-center flex-wrap">
-                                                    {% if player.user.id == lobby.owner_id %}
-                                                        <span class="badge bg-warning text-dark me-2 mb-1">
-                                                            <i class="fas fa-crown me-1"></i> Owner
-                                                        </span>
-                                                    {% endif %}
-                                                    {% if player.user.id == user.id %}
-                                                        <form method="POST" action="{{ url_for('change_team', lobby_code=lobby.code) }}" class="d-inline">
-                                                            <input type="hidden" name="team" value="0">
-                                                            <button type="submit" class="btn btn-sm btn-outline-secondary team-leave-btn mb-1">
-                                                                Leave Team
-                                                            </button>
-                                                        </form>
-                                                    {% endif %}
-                                                </div>
-                                            </li>
-                                        {% else %}
-                                            <li class="list-group-item text-muted">No player in Team Red</li>
-                                        {% endfor %}
-                                    </ul>
-                                </div>
-                            </div>
+                            {% endfor %}
                         </div>
                     {% else %}
                         <!-- 4-Player Game: 2 Teams, 2 players each -->
@@ -167,7 +109,7 @@
                                                         </span>
                                                     {% endif %}
                                                     {% if player.user.id == user.id %}
-                                                        <form method="POST" action="{{ url_for('change_team', lobby_code=lobby.code) }}" class="d-inline">
+                                                        <form method="POST" action="{{ url_for('lobbies.change_team', lobby_code=lobby.code) }}" class="d-inline">
                                                             <input type="hidden" name="team" value="0">
                                                             <button type="submit" class="btn btn-sm btn-outline-secondary team-leave-btn mb-1">
                                                                 Leave Team
@@ -201,7 +143,7 @@
                                                         </span>
                                                     {% endif %}
                                                     {% if player.user.id == user.id %}
-                                                        <form method="POST" action="{{ url_for('change_team', lobby_code=lobby.code) }}" class="d-inline">
+                                                        <form method="POST" action="{{ url_for('lobbies.change_team', lobby_code=lobby.code) }}" class="d-inline">
                                                             <input type="hidden" name="team" value="0">
                                                             <button type="submit" class="btn btn-sm btn-outline-secondary team-leave-btn mb-1">
                                                                 Leave Team
@@ -219,7 +161,8 @@
                         </div>
                     {% endif %}
                     
-                    <!-- Unassigned Players Section -->
+                    <!-- Unassigned Players Section (4-player only) -->
+                    {% if lobby.player_count_type != 3 %}
                     <div class="card mb-4">
                         <div class="card-header bg-secondary text-white">
                             <h5 class="mb-0"><i class="fas fa-user-plus me-2"></i> Unassigned Players (<span id="unassigned-count">{{ lobby.unassigned_players|length }}</span>)</h5>
@@ -241,19 +184,19 @@
                                             <div class="btn-group ms-2">
                                                 {% if lobby.player_count_type == 3 %}
                                                     <!-- 3-player game: Show all 3 team options -->
-                                                    <form method="POST" action="{{ url_for('change_team', lobby_code=lobby.code) }}" class="d-inline">
+                                                    <form method="POST" action="{{ url_for('lobbies.change_team', lobby_code=lobby.code) }}" class="d-inline">
                                                         <input type="hidden" name="team" value="1">
                                                         <button type="submit" class="btn btn-sm btn-outline-primary team-join-btn" {% if lobby.team1_players|length >= 1 %}disabled{% endif %}>
                                                             Join Purple
                                                         </button>
                                                     </form>
-                                                    <form method="POST" action="{{ url_for('change_team', lobby_code=lobby.code) }}" class="d-inline ms-1">
+                                                    <form method="POST" action="{{ url_for('lobbies.change_team', lobby_code=lobby.code) }}" class="d-inline ms-1">
                                                         <input type="hidden" name="team" value="2">
                                                         <button type="submit" class="btn btn-sm btn-outline-secondary team-join-btn" {% if lobby.team2_players|length >= 1 %}disabled{% endif %}>
                                                             Join Black
                                                         </button>
                                                     </form>
-                                                    <form method="POST" action="{{ url_for('change_team', lobby_code=lobby.code) }}" class="d-inline ms-1">
+                                                    <form method="POST" action="{{ url_for('lobbies.change_team', lobby_code=lobby.code) }}" class="d-inline ms-1">
                                                         <input type="hidden" name="team" value="3">
                                                         <button type="submit" class="btn btn-sm btn-outline-danger team-join-btn" {% if lobby.team3_players|length >= 1 %}disabled{% endif %}>
                                                             Join Red
@@ -261,13 +204,13 @@
                                                     </form>
                                                 {% else %}
                                                     <!-- 4-player game: Show 2 team options -->
-                                                    <form method="POST" action="{{ url_for('change_team', lobby_code=lobby.code) }}" class="d-inline">
+                                                    <form method="POST" action="{{ url_for('lobbies.change_team', lobby_code=lobby.code) }}" class="d-inline">
                                                         <input type="hidden" name="team" value="1">
                                                         <button type="submit" class="btn btn-sm btn-outline-primary team-join-btn" {% if lobby.team1_players|length >= 2 %}disabled{% endif %}>
                                                             Join Team Purple
                                                         </button>
                                                     </form>
-                                                    <form method="POST" action="{{ url_for('change_team', lobby_code=lobby.code) }}" class="d-inline ms-1">
+                                                    <form method="POST" action="{{ url_for('lobbies.change_team', lobby_code=lobby.code) }}" class="d-inline ms-1">
                                                         <input type="hidden" name="team" value="2">
                                                         <button type="submit" class="btn btn-sm btn-outline-danger team-join-btn" {% if lobby.team2_players|length >= 2 %}disabled{% endif %}>
                                                             Join Team Black
@@ -284,6 +227,8 @@
                         </ul>
                     </div>
                     
+                    {% endif %}{# end unassigned section (4-player only) #}
+
                     <h5><i class="fas fa-users me-2"></i> All Players (<span id="player-count">{{ lobby.player_count }}</span>/{{ lobby.player_count_type }})</h5>
                     <ul class="list-group" id="players-list">
                         {% for player in lobby.players %}
@@ -307,14 +252,14 @@
                     </ul>
                 </div>
                 <div class="card-footer d-flex justify-content-between">
-                    <form method="POST" action="{{ url_for('leave_lobby', lobby_code=lobby.code) }}">
+                    <form method="POST" action="{{ url_for('lobbies.leave', lobby_code=lobby.code) }}">
                         <button type="submit" class="btn btn-danger">
                             <i class="fas fa-sign-out-alt me-2"></i> Leave Lobby
                         </button>
                     </form>
                     
                     {% if is_owner %}
-                        <form method="POST" action="{{ url_for('start_game', lobby_code=lobby.code) }}">
+                        <form method="POST" action="{{ url_for('lobbies.start_game', lobby_code=lobby.code) }}">
                             <button type="submit" class="btn btn-success">
                                 <i class="fas fa-play me-2"></i> Start Game
                             </button>
@@ -332,7 +277,7 @@
                     <h4 class="mb-0"><i class="fas fa-cog me-2"></i> Lobby Settings</h4>
                 </div>
                 <div class="card-body">
-                    <form method="POST" action="{{ url_for('update_lobby_settings', lobby_code=lobby.code) }}">
+                    <form method="POST" action="{{ url_for('lobbies.update_settings', lobby_code=lobby.code) }}">
                         <div class="mb-3">
                             <label class="form-label">Game Type</label>
                             <div class="game-type-switch-container">
@@ -390,7 +335,7 @@
                         <div class="alert alert-success mb-3">
                             <h5><i class="fas fa-play me-2"></i> Next Game Starter:</h5>
                             <div class="text-center">
-                                <span class="badge px-3 py-2" style="background-color: {% if starter_info.team_name == 'Purple' %}#6f42c1{% else %}#5e5e5e{% endif %}; color: white; font-size: 0.9rem;">
+                                <span class="badge px-3 py-2" style="background-color: {% if starter_info.team_name == 'Purple' %}#6f42c1{% elif starter_info.team_name == 'Black' %}#5e5e5e{% elif starter_info.team_name == 'Green' %}#0d6efd{% else %}#6c757d{% endif %}; color: white; font-size: 0.9rem;">
                                     {{ starter_info.username }}
                                 </span>
                             </div>
@@ -409,7 +354,7 @@
                     {% endif %}
                 </div>
                 <div class="card-footer">
-                    <a href="{{ url_for('lobbies') }}" class="btn btn-secondary">Back to Lobbies</a>
+                    <a href="{{ url_for('lobbies.index') }}" class="btn btn-secondary">Back to Lobbies</a>
                 </div>
             </div>
             
@@ -418,20 +363,44 @@
                     <h5 class="mb-0"><i class="fas fa-trophy me-2"></i>Lobby Statistics</h5>
                 </div>
                 <div class="card-body">
-                    <div class="row text-center">
-                        <div class="col-4">
-                            <h3 class="mb-1" style="color: #6f42c1;">{{ lobby.team1_wins }}</h3>
-                            <small class="text-muted">Team Purple Points</small>
+                    {% if lobby.player_count_type == 3 %}
+                    {% set p1name = lobby.team1_players[0].user.username if lobby.team1_players else '—' %}
+                    {% set p2name = lobby.team2_players[0].user.username if lobby.team2_players else '—' %}
+                    {% set p3name = lobby.team3_players[0].user.username if lobby.team3_players else '—' %}
+                    <div class="row text-center g-2 mb-2">
+                        <div class="col-3">
+                            <h3 class="mb-0" style="color: #6f42c1;" id="stats-team1-wins">{{ lobby.team1_wins }}</h3>
+                            <small class="text-muted" id="stats-p1-name">{{ p1name }}</small>
                         </div>
-                        <div class="col-4">
-                            <h3 class="mb-1" style="color: #212529;">{{ lobby.team2_wins }}</h3>
-                            <small class="text-muted">Team Black Points</small>
+                        <div class="col-3">
+                            <h3 class="mb-0" style="color: #5e5e5e;" id="stats-team2-wins">{{ lobby.team2_wins }}</h3>
+                            <small class="text-muted" id="stats-p2-name">{{ p2name }}</small>
                         </div>
-                        <div class="col-4">
-                            <h3 class="mb-1" style="color: #6c757d;">{{ lobby.total_games_played }}</h3>
-                            <small class="text-muted">Total Games</small>
+                        <div class="col-3">
+                            <h3 class="mb-0" style="color: #0d6efd;" id="stats-team3-wins">{{ lobby.team3_wins }}</h3>
+                            <small class="text-muted" id="stats-p3-name">{{ p3name }}</small>
+                        </div>
+                        <div class="col-3">
+                            <h3 class="mb-0 text-secondary">{{ lobby.total_games_played }}</h3>
+                            <small class="text-muted">Games</small>
                         </div>
                     </div>
+                    {% else %}
+                    <div class="row text-center">
+                        <div class="col-4">
+                            <h3 class="mb-0" style="color: #6f42c1;" id="stats-team1-wins">{{ lobby.team1_wins }}</h3>
+                            <small class="text-muted">Team Purple</small>
+                        </div>
+                        <div class="col-4">
+                            <h3 class="mb-0" style="color: #212529;" id="stats-team2-wins">{{ lobby.team2_wins }}</h3>
+                            <small class="text-muted">Team Black</small>
+                        </div>
+                        <div class="col-4">
+                            <h3 class="mb-0 text-secondary">{{ lobby.total_games_played }}</h3>
+                            <small class="text-muted">Games</small>
+                        </div>
+                    </div>
+                    {% endif %}
                     {% if lobby.next_game_multiplier > 1 %}
                         <div class="alert alert-warning mt-3 mb-0">
                             <i class="fas fa-star me-2"></i>
@@ -444,7 +413,7 @@
                     <div class="mt-3" id="reset-stats-section">
                         <div class="d-flex justify-content-between align-items-center">
                             <small class="text-muted">Reset Statistics</small>
-                            <form method="POST" action="{{ url_for('vote_reset_stats', lobby_code=lobby.code) }}" style="display: inline;">
+                            <form method="POST" action="{{ url_for('lobbies.vote_reset_stats', lobby_code=lobby.code) }}" style="display: inline;">
                                 {% set current_user_player = lobby.players|selectattr('user_id', 'equalto', user.id)|first %}
                                 {% set current_user_voted = current_user_player.voted_reset_stats if current_user_player else False %}
                                 {% set total_votes = lobby.players|selectattr('voted_reset_stats', 'equalto', True)|list|length %}
@@ -452,7 +421,7 @@
                                 <button type="submit" class="btn btn-sm {{ 'btn-warning' if current_user_voted else 'btn-outline-warning' }}" id="vote-reset-btn">
                                     <i class="fas fa-vote-yea me-1"></i>
                                     {{ 'Withdraw Vote' if current_user_voted else 'Vote Reset' }}
-                                    ({{ total_votes }}/4)
+                                    ({{ total_votes }}/{{ lobby.player_count_type }})
                                 </button>
                             </form>
                         </div>
@@ -470,14 +439,16 @@
                             </div>
                         {% endif %}
                         
-                        {% if total_votes == 4 %}
+                        {% if total_votes == lobby.player_count_type %}
                             <div class="alert alert-success mt-2 mb-0" id="success-alert">
                                 <i class="fas fa-check me-2"></i>
                                 All players voted! Statistics will be reset.
                             </div>
                         {% elif total_votes > 0 %}
                             <div class="progress mt-2" style="height: 5px;" id="vote-progress">
-                                <div class="progress-bar bg-warning" role="progressbar" style="width: {{ (total_votes / 4) * 100 }}%" id="vote-progress-bar"></div>
+                                <div class="progress-bar bg-warning" role="progressbar"
+                                     style="width: {{ (total_votes / lobby.player_count_type) * 100 }}%"
+                                     id="vote-progress-bar"></div>
                             </div>
                         {% endif %}
                     </div>
@@ -502,10 +473,10 @@
 <script src="https://cdn.socket.io/4.6.0/socket.io.min.js"></script>
 
 <script>
-// Connect to Socket.IO server
 const socket = io();
 const lobbyCode = document.getElementById('lobbyCode').textContent;
 const currentUserId = {{ user.id }};
+const IS_THREE_PLAYER = {{ (lobby.player_count_type == 3) | lower }};
 
 // Join the lobby room when page loads
 socket.on('connect', function() {
@@ -559,13 +530,14 @@ socket.on('player_joined', function(data) {
             // Update player count
             playerCount.textContent = parseInt(playerCount.textContent) + 1;
             
-            // Also add to appropriate team list based on data.team
-            if (data.team === 1) {
-                addPlayerToTeam(data, 1);
-            } else if (data.team === 2) {
-                addPlayerToTeam(data, 2);
+            // Place player in their team slot or unassigned
+            if (IS_THREE_PLAYER) {
+                // Auto-assigned: team will be 1, 2, or 3
+                if (data.team >= 1 && data.team <= 3) addPlayerToTeam(data, data.team, false);
             } else {
-                addUnassignedPlayer(data);
+                if (data.team === 1) addPlayerToTeam(data, 1);
+                else if (data.team === 2) addPlayerToTeam(data, 2);
+                else addUnassignedPlayer(data);
             }
             
             // Log the activity
@@ -595,25 +567,13 @@ socket.on('player_left', function(data) {
         const playerItem = document.querySelector(`.player-item[data-user-id="${playerId}"]`);
         const playerCount = document.getElementById('player-count');
         
-        // Remove from team lists
-        const team1Item = document.querySelector(`.team-player-item[data-user-id="${playerId}"][data-team="1"]`);
-        const team2Item = document.querySelector(`.team-player-item[data-user-id="${playerId}"][data-team="2"]`);
+        // Remove from whichever team slot they were in
+        [1, 2, 3].forEach(t => {
+            const el = document.querySelector(`.team-player-item[data-user-id="${playerId}"][data-team="${t}"]`);
+            if (el) { el.remove(); updateTeamCount(t); }
+        });
         const unassignedItem = document.querySelector(`.unassigned-player-item[data-user-id="${playerId}"]`);
-        
-        if (team1Item) {
-            team1Item.remove();
-            updateTeamCount(1);
-        }
-        
-        if (team2Item) {
-            team2Item.remove();
-            updateTeamCount(2);
-        }
-        
-        if (unassignedItem) {
-            unassignedItem.remove();
-            updateUnassignedCount();
-        }
+        if (unassignedItem) { unassignedItem.remove(); updateUnassignedCount(); }
         
         if (playerItem) {
             // Remove player from main list
@@ -673,58 +633,44 @@ socket.on('player_team_changed', function(data) {
     }
 });
 
-// Function to add player to a team
-function addPlayerToTeam(playerData, teamNumber) {
+// Add a player to a team slot.
+// showButtons=false suppresses the Leave Team button (used in 3-player auto-assign mode).
+function addPlayerToTeam(playerData, teamNumber, showButtons = true) {
     const teamList = document.getElementById(`team${teamNumber}-list`);
+    if (!teamList) return;
     const emptyMessage = teamList.querySelector('.text-muted');
     if (emptyMessage) emptyMessage.remove();
-    
-    // Create new player element
+
     const newPlayerEl = document.createElement('li');
     newPlayerEl.className = 'list-group-item d-flex justify-content-between align-items-center team-player-item';
     newPlayerEl.setAttribute('data-user-id', playerData.user_id);
     newPlayerEl.setAttribute('data-username', playerData.username);
     newPlayerEl.setAttribute('data-team', teamNumber);
-    
+
     const isCurrentUser = playerData.user_id === currentUserId;
     const isOwner = document.querySelector(`.player-item[data-user-id="${playerData.user_id}"] .badge.bg-warning`) !== null;
-    
-    let switchTeamBtn = '';
-    if (isCurrentUser) {
-        switchTeamBtn = `
-            <form method="POST" action="/lobby/${lobbyCode}/change_team" class="d-inline">
-                <input type="hidden" name="team" value="0">
-                <button type="submit" class="btn btn-sm btn-outline-secondary ms-2 team-leave-btn">
-                    Leave Team
-                </button>
-            </form>
-        `;
-    }
-    
-    let ownerBadge = '';
-    if (isOwner) {
-        ownerBadge = `
-            <span class="badge bg-warning text-dark">
-                <i class="fas fa-crown me-1"></i> Owner
-            </span>
-        `;
-    }
-    
+
+    const leaveBtn = (showButtons && isCurrentUser) ? `
+        <form method="POST" action="/lobby/${lobbyCode}/change_team" class="d-inline">
+            <input type="hidden" name="team" value="0">
+            <button type="submit" class="btn btn-sm btn-outline-secondary ms-2 team-leave-btn">
+                Leave Team
+            </button>
+        </form>` : '';
+
+    const ownerBadge = isOwner ? `
+        <span class="badge bg-warning text-dark">
+            <i class="fas fa-crown me-1"></i> Owner
+        </span>` : '';
+
     newPlayerEl.innerHTML = `
         <div>
             <i class="fas fa-user me-2"></i>
             <span class="fw-bold">${playerData.username}</span>
         </div>
-        <div>
-            ${ownerBadge}
-            ${switchTeamBtn}
-        </div>
-    `;
-    
-    // Add to list
+        <div>${ownerBadge}${leaveBtn}</div>`;
+
     teamList.appendChild(newPlayerEl);
-    
-    // Update team count
     updateTeamCount(teamNumber);
 }
 
@@ -1003,7 +949,13 @@ function logActivity(message, action = 'general', userId = null) {
     }
 }
 
-// Before unloading the page, leave the room
+// When the owner changes lobby settings, reload so every client sees the new state
+socket.on('lobby_settings_updated', function(data) {
+    if (data.lobby_code === lobbyCode) {
+        window.location.reload();
+    }
+});
+
 window.addEventListener('beforeunload', function() {
     socket.emit('leave_lobby_room', {lobby_code: lobbyCode});
 });
@@ -1055,7 +1007,7 @@ socket.on('reset_vote_update', function(data) {
         voteButton.innerHTML = `
             <i class="fas fa-vote-yea me-1"></i>
             ${isCurrentUserVoted ? 'Withdraw Vote' : 'Vote Reset'}
-            (${data.votes_count}/4)
+            (${data.votes_count}/${data.total_needed})
         `;
         
         voteButton.className = isCurrentUserVoted ? 'btn btn-sm btn-warning' : 'btn btn-sm btn-outline-warning';
@@ -1137,13 +1089,12 @@ socket.on('reset_vote_update', function(data) {
 // Handle statistics reset
 socket.on('stats_reset', function(data) {
     logActivity(data.message);
-    
-    // Update statistics display
-    const team1Wins = document.querySelector('.text-primary');
-    const team2Wins = document.querySelector('.text-danger');
-    
-    if (team1Wins) team1Wins.textContent = '0';
-    if (team2Wins) team2Wins.textContent = '0';
+
+    // Update statistics display via stable IDs
+    ['stats-team1-wins', 'stats-team2-wins', 'stats-team3-wins'].forEach(id => {
+        const el = document.getElementById(id);
+        if (el) el.textContent = '0';
+    });
     
     // Reset all vote-related UI
     const voteButton = document.getElementById('vote-reset-btn');

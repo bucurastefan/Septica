@@ -30,7 +30,7 @@
     </div>
     
     <nav class="navbar navbar-expand-lg navbar-dark fixed-top">
-        <div class="container">            <a class="navbar-brand" href="{{ url_for('index') }}">
+        <div class="container">            <a class="navbar-brand" href="{{ url_for('main.index') }}">
                 <span class="card-suit-logo">
                     <span class="card-symbol heart-purple">♥</span>
                     <span class="card-symbol club-black">♣</span>
@@ -54,13 +54,13 @@
                     {% if 'username' in session %}
                         {% if session.get('is_admin', False) %}
                         <li class="nav-item">
-                            <a class="nav-link" href="{{ url_for('admin_dashboard') }}">
+                            <a class="nav-link" href="{{ url_for('admin.dashboard') }}">
                                 <i class="fas fa-cog me-1"></i> Admin Dashboard
                             </a>
                         </li>
                         {% endif %}
                         <li class="nav-item">
-                            <a class="nav-link" href="{{ url_for('rules') }}">
+                            <a class="nav-link" href="{{ url_for('main.rules') }}">
                                 <i class="fas fa-book me-1"></i> Rules
                             </a>
                         </li>
@@ -71,24 +71,24 @@
                                 <small class="badge bg-secondary ms-1">Guest</small>
                             </span>
                             {% else %}
-                            <a class="nav-link" href="{{ url_for('statistics') }}">
+                            <a class="nav-link" href="{{ url_for('main.statistics') }}">
                                 <i class="fas fa-user me-1"></i> {{ session['username'] }}
                             </a>
                             {% endif %}
                         </li>
                         <li class="nav-item">
-                            <a class="nav-link" href="{{ url_for('logout') }}">
+                            <a class="nav-link" href="{{ url_for('auth.logout') }}">
                                 <i class="fas fa-sign-out-alt me-1"></i> Logout
                             </a>
                         </li>
                     {% else %}
                     <li class="nav-item">
-                        <a class="nav-link" href="{{ url_for('login') }}">
+                        <a class="nav-link" href="{{ url_for('auth.login') }}">
                             <i class="fas fa-sign-in-alt me-1"></i> Login
                         </a>
                     </li>
                     <li class="nav-item">
-                        <a class="nav-link" href="{{ url_for('register') }}">
+                        <a class="nav-link" href="{{ url_for('auth.register') }}">
                             <i class="fas fa-user-plus me-1"></i> Register
                         </a>
                     </li>

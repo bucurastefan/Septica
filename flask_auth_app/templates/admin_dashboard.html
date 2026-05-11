@@ -23,7 +23,7 @@
                                     <i class="fas fa-users fa-2x mb-3"></i>
                                     <h5 class="card-title">Total Users</h5>
                                     <p class="card-text display-4 fw-bold" id="user-count">{{ user_count }}</p>
-                                    <a href="{{ url_for('admin_users') }}" class="btn btn-light mt-2">
+                                    <a href="{{ url_for('admin.users') }}" class="btn btn-light mt-2">
                                         <i class="fas fa-arrow-right me-1"></i> Manage Users
                                     </a>
                                 </div>
@@ -35,7 +35,7 @@
                                     <i class="fas fa-gamepad fa-2x mb-3"></i>
                                     <h5 class="card-title">Active Lobbies</h5>
                                     <p class="card-text display-4 fw-bold" id="lobby-count">{{ lobby_count }}</p>
-                                    <a href="{{ url_for('admin_lobbies') }}" class="btn btn-light mt-2">
+                                    <a href="{{ url_for('admin.lobbies') }}" class="btn btn-light mt-2">
                                         <i class="fas fa-arrow-right me-1"></i> Manage Lobbies
                                     </a>
                                 </div>
@@ -64,9 +64,9 @@
                     </div>
                 </div>
                 <div class="card-footer">
-                    <a href="{{ url_for('admin_users') }}" class="btn btn-primary">Manage Users</a>
-                    <a href="{{ url_for('admin_lobbies') }}" class="btn btn-success">Manage Lobbies</a>
-                    <a href="{{ url_for('logout') }}" class="btn btn-danger float-end">Logout</a>
+                    <a href="{{ url_for('admin.users') }}" class="btn btn-primary">Manage Users</a>
+                    <a href="{{ url_for('admin.lobbies') }}" class="btn btn-success">Manage Lobbies</a>
+                    <a href="{{ url_for('auth.logout') }}" class="btn btn-danger float-end">Logout</a>
                 </div>
             </div>
         </div>

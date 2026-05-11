@@ -17,7 +17,7 @@
                         Convert your guest account to a registered account to save your game progress and statistics permanently!
                     </div>
                     
-                    <form method="POST" action="{{ url_for('convert_guest') }}">
+                    <form method="POST" action="{{ url_for('auth.convert_guest') }}">
                         <div class="form-group mb-3">
                             <label for="current_name" class="form-label">Current Guest Name</label>
                             <div class="input-group">
@@ -47,7 +47,7 @@
                             <button type="submit" class="btn btn-success">
                                 <i class="fas fa-save me-2"></i> Convert to Registered Account
                             </button>
-                            <a href="{{ url_for('lobbies') }}" class="btn btn-outline-secondary">
+                            <a href="{{ url_for('lobbies.index') }}" class="btn btn-outline-secondary">
                                 <i class="fas fa-arrow-left me-2"></i> Continue as Guest
                             </a>
                         </div>

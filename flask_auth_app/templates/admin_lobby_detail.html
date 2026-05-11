@@ -71,7 +71,7 @@
                             <h5 class="mb-0">Actions</h5>
                         </div>
                         <div class="card-body">
-                            <form action="{{ url_for('admin_delete_lobby', lobby_code=lobby.code) }}" method="POST" class="d-grid gap-2">
+                            <form action="{{ url_for('admin.delete_lobby', lobby_code=lobby.code) }}" method="POST" class="d-grid gap-2">
                                 <button type="submit" class="btn btn-danger">Delete Lobby</button>
                             </form>
                         </div>
@@ -137,7 +137,7 @@
             </div>
         </div>
         <div class="card-footer">
-            <a href="{{ url_for('admin_lobbies') }}" class="btn btn-primary">Back to Lobbies</a>
+            <a href="{{ url_for('admin.lobbies') }}" class="btn btn-primary">Back to Lobbies</a>
         </div>
     </div>
 </div>

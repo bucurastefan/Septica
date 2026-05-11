@@ -14,4 +14,4 @@ RUN pip install --no-cache-dir -r requirements.txt
 EXPOSE 5000
 
 # Define default command to run the app, allowing external connections by default
-CMD ["python", "app.py", "--host-all"]
+CMD ["python", "app.py"]

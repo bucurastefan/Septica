@@ -32,11 +32,11 @@
                                 <td><i class="far fa-calendar-alt me-2"></i>{{ user.created_at.strftime('%Y-%m-%d %H:%M:%S') }}</td>
                                 <td>
                                     <div class="btn-group" role="group">
-                                        <a href="{{ url_for('admin_user_details', user_id=user.id) }}" 
+                                        <a href="{{ url_for('admin.user_details', user_id=user.id) }}" 
                                            class="btn btn-sm btn-info">
                                            <i class="fas fa-eye me-1"></i> View
                                         </a>
-                                        <a href="{{ url_for('admin_edit_user', user_id=user.id) }}" 
+                                        <a href="{{ url_for('admin.edit_user', user_id=user.id) }}" 
                                            class="btn btn-sm btn-warning">
                                            <i class="fas fa-edit me-1"></i> Edit
                                         </a>
@@ -54,7 +54,7 @@
                                                 Delete user <strong>{{ user.username }}</strong>?
                                             </small>
                                             <div class="btn-group btn-group-sm w-100">
-                                                <form action="{{ url_for('admin_delete_user', user_id=user.id) }}" 
+                                                <form action="{{ url_for('admin.delete_user', user_id=user.id) }}" 
                                                       method="POST" class="flex-fill">
                                                     <button type="submit" class="btn btn-danger btn-sm">
                                                         <i class="fas fa-check me-1"></i> Yes
@@ -80,7 +80,7 @@
             {% endif %}
         </div>
         <div class="card-footer">
-            <a href="{{ url_for('admin_dashboard') }}" class="btn btn-primary">Back to Dashboard</a>
+            <a href="{{ url_for('admin.dashboard') }}" class="btn btn-primary">Back to Dashboard</a>
         </div>
     </div>
 </div>

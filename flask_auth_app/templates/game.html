@@ -78,14 +78,32 @@
 
         <!-- Right Side - Info Panel -->
         <div class="col-lg-3">
-            <!-- Team Scores -->
+            <!-- Scores -->
             <div class="card shadow mb-3">
                 <div class="card-header bg-warning text-dark">
                     <h6 class="mb-0">
-                        <i class="fas fa-trophy me-2"></i>Team Scores
+                        <i class="fas fa-trophy me-2"></i>
+                        {% if lobby.player_count_type == 3 %}Scores{% else %}Team Scores{% endif %}
                     </h6>
                 </div>
                 <div class="card-body p-3">
+                    {% if lobby.player_count_type == 3 %}
+                    <div class="card text-white mb-2" style="background-color: #6f42c1;">
+                        <div class="card-body text-center py-2">
+                            <strong><span class="player-name-0">Player 1</span>: <span class="player-score-0">0</span></strong>
+                        </div>
+                    </div>
+                    <div class="card text-white mb-2" style="background-color: #212529;">
+                        <div class="card-body text-center py-2">
+                            <strong><span class="player-name-1">Player 2</span>: <span class="player-score-1">0</span></strong>
+                        </div>
+                    </div>
+                    <div class="card text-white" style="background-color: #0d6efd;">
+                        <div class="card-body text-center py-2">
+                            <strong><span class="player-name-2">Player 3</span>: <span class="player-score-2">0</span></strong>
+                        </div>
+                    </div>
+                    {% else %}
                     <div class="card text-white mb-2" style="background-color: #6f42c1;">
                         <div class="card-body text-center py-2">
                             <strong>Team Purple: <span class="team1-score">0</span></strong>
@@ -96,6 +114,7 @@
                             <strong>Team Black: <span class="team2-score">0</span></strong>
                         </div>
                     </div>
+                    {% endif %}
                 </div>
             </div>
 
@@ -130,10 +149,14 @@
                 </div>
                 <div class="card-body">
                     <div class="mb-3">
+                        {% if lobby.player_count_type == 3 %}
+                        <strong>Playing:</strong>
+                        {% else %}
                         <strong>Your Team:</strong>
+                        {% endif %}
                         <div class="text-center mt-2">
                             <span id="player-team-display" class="badge fs-6 p-2">
-                                <i class="fas fa-users me-1"></i>
+                                <i class="fas fa-{% if lobby.player_count_type == 3 %}user{% else %}users{% endif %} me-1"></i>
                                 Loading...
                             </span>
                         </div>
@@ -154,8 +177,8 @@
                         </div>
                     </div>
                     <div class="text-center">
-                        <a href="/lobbies" class="btn btn-outline-primary btn-sm">
-                            <i class="fas fa-arrow-left me-2"></i>Back to Lobbies
+                        <a href="/lobby/{{ lobby.code }}" class="btn btn-outline-primary btn-sm">
+                            <i class="fas fa-arrow-left me-2"></i>Back to Lobby
                         </a>
                     </div>
                 </div>
@@ -242,326 +265,321 @@
 {% block extra_scripts %}
 <script src="https://cdnjs.cloudflare.com/ajax/libs/socket.io/4.0.1/socket.io.js"></script>
 <script>
+// ---------------------------------------------------------------------------
+// Constants injected from server
+// ---------------------------------------------------------------------------
+const NUM_PLAYERS = {{ lobby.player_count_type }};
+
+// Per-position colours used for hand-owner badge and solo-play badge.
+// 4-player: positions 0,2 share purple; 1,3 share black.
+// 3-player: each position has its own colour.
+const PLAYER_COLORS = NUM_PLAYERS === 3
+    ? ['#6f42c1', '#212529', '#0d6efd']
+    : ['#6f42c1', '#212529', '#6f42c1', '#212529'];  // 0,2=purple; 1,3=black
+
+// Wild suits whose 8 acts as a cut card in 3-player mode
+const WILD_EIGHT_SUITS = new Set(['clubs', 'spades']);
+
+// ---------------------------------------------------------------------------
+// State
+// ---------------------------------------------------------------------------
 const socket = io();
 const lobbyCode = document.getElementById('lobby-code').value;
 let myPosition = null;
 let gameState = null;
 
-// Join game room
+// Join game room and kick off the game
 socket.emit('join_lobby_room', { lobby_code: lobbyCode });
-
-// Initialize game
 socket.emit('initialize_game', { lobby_code: lobbyCode });
 
-// Handle game state updates
+// ---------------------------------------------------------------------------
+// Socket events
+// ---------------------------------------------------------------------------
 socket.on('game_state_update', function(state) {
     gameState = state;
     myPosition = state.position;
     updateGameDisplay(state);
 });
 
-// Function to show custom game toast (similar to lobby style)
-function showGameToast(message, type = 'info') {
-    // Determine background color and icon based on type
-    let bgClass = 'bg-info';
-    let iconClass = 'fas fa-info-circle';
-    
-    if (type === 'error') {
-        bgClass = 'bg-danger';
-        iconClass = 'fas fa-exclamation-triangle';
-    } else if (type === 'success') {
-        bgClass = 'bg-success';
-        iconClass = 'fas fa-check-circle';
-    } else if (type === 'warning') {
-        bgClass = 'bg-warning text-dark';
-        iconClass = 'fas fa-exclamation-triangle';
-    }
-    
-    // Create toast element
-    const toast = document.createElement('div');
-    toast.className = 'position-fixed top-0 start-50 translate-middle-x p-3';
-    toast.style.zIndex = '9999';
-    toast.innerHTML = `
-        <div class="toast show align-items-center text-white ${bgClass} border-0" role="alert" aria-live="assertive" aria-atomic="true">
-            <div class="d-flex">
-                <div class="toast-body">
-                    <i class="${iconClass} me-2"></i>${message}
-                </div>
-                <button type="button" class="btn-close btn-close-white me-2 m-auto" onclick="this.closest('.position-fixed').remove()" aria-label="Close"></button>
-            </div>
-        </div>
-    `;
-    
-    document.body.appendChild(toast);
-    
-    // Remove the toast after 2 seconds (faster than lobby)
-    setTimeout(() => {
-        if (toast.parentNode) {
-            toast.remove();
-        }
-    }, 2000);
-}
-
-// Handle game errors
 socket.on('game_error', function(data) {
     showGameToast(data.message, 'error');
 });
 
-// Handle game completion
 socket.on('game_completed', function(data) {
-    // Redirect to lobby immediately - notification will be shown there
-    window.location.href = '/lobbies';
+    window.location.href = '/lobby/' + lobbyCode;
 });
 
+// ---------------------------------------------------------------------------
+// Display update — main entry point
+// ---------------------------------------------------------------------------
 function updateGameDisplay(state) {
-    // Update scores
-    document.querySelector('.team1-score').textContent = state.scores[0];
-    document.querySelector('.team2-score').textContent = state.scores[1];
-    
-    // Update player hand title with username
-    if (state.player_names && myPosition !== null) {
-        const playerHandTitle = document.querySelector('#player-hand-title');
-        playerHandTitle.textContent = `${state.player_names[myPosition]}'s Hand`;
-    }
-    
-    // Update player team display
+    updateScores(state);
+    updateHandTitle(state);
     updatePlayerTeam(state);
-    
-    // Update current player turn indicator
-    const currentPlayerDisplay = document.querySelector('#current-player-display');
-    if (state.player_names && state.current_player !== null) {
-        const currentPlayerName = state.player_names[state.current_player];
-        
-        if (state.current_player === myPosition) {
-            currentPlayerDisplay.textContent = 'Your Turn!';
-            currentPlayerDisplay.parentElement.className = 'alert alert-success mt-2 mb-0 py-2 text-center';
-        } else {
-            currentPlayerDisplay.textContent = currentPlayerName;
-            currentPlayerDisplay.parentElement.className = 'alert alert-primary mt-2 mb-0 py-2 text-center';
-        }
-    } else {
-        currentPlayerDisplay.textContent = 'Waiting...';
-        currentPlayerDisplay.parentElement.className = 'alert alert-secondary mt-2 mb-0 py-2 text-center';
-    }
-    
-    // Update game status info
-    const cutCardDisplay = document.querySelector('#cut-card-display');
-    if (state.cut_card) {
-        cutCardDisplay.textContent = `${state.cut_card.value}${getSuitSymbol(state.cut_card.suit)}`;
-    } else {
-        cutCardDisplay.textContent = 'None';
-    }
-    
-    // Update hand owner with team color
-    const handOwnerDisplay = document.querySelector('#hand-owner-display');
-    if (state.player_names && state.hand_owner !== null) {
-        const ownerName = state.player_names[state.hand_owner];
-        handOwnerDisplay.textContent = ownerName;
-        
-        // Set team color background - make purple more visible with darker shade
-        if (state.hand_owner % 2 === 0) {
-            // Team Purple (positions 0, 2) - darker purple for better visibility
-            handOwnerDisplay.className = 'fw-bold badge fs-6 py-2 px-3 text-white';
-            handOwnerDisplay.style.backgroundColor = '#6f42c1'; // Darker purple
-        } else {
-            // Team Black (positions 1, 3)
-            handOwnerDisplay.className = 'fw-bold badge fs-6 py-2 px-3 text-white';
-            handOwnerDisplay.style.backgroundColor = '#212529'; // Dark gray/black
-        }
-    } else {
-        handOwnerDisplay.textContent = 'None';
-        handOwnerDisplay.className = 'fw-bold badge fs-6 py-2 px-3 text-white';
-        handOwnerDisplay.style.backgroundColor = '#6c757d'; // Gray for no owner
-    }
-    
-    // Update deck count
+    updateCurrentTurnIndicator(state);
+    updateCutCardDisplay(state);
+    updateHandOwnerDisplay(state);
     document.querySelector('#cards-in-deck').textContent = state.cards_in_deck;
-    
-    // Update current player's hand
     updatePlayerHand(state);
-    
-    // Update center pile with current hand cards
     updateCenterPile(state);
-    
-    // Update action buttons
     updateActionButtons(state);
 }
 
+// ---------------------------------------------------------------------------
+// Score panel
+// ---------------------------------------------------------------------------
+function updateScores(state) {
+    if (NUM_PLAYERS === 3) {
+        for (let i = 0; i < 3; i++) {
+            const scoreEl = document.querySelector(`.player-score-${i}`);
+            const nameEl  = document.querySelector(`.player-name-${i}`);
+            if (scoreEl) scoreEl.textContent = state.scores[i] ?? 0;
+            if (nameEl && state.player_names) nameEl.textContent = state.player_names[i] ?? `Player ${i+1}`;
+        }
+    } else {
+        const t1 = document.querySelector('.team1-score');
+        const t2 = document.querySelector('.team2-score');
+        if (t1) t1.textContent = state.scores[0] ?? 0;
+        if (t2) t2.textContent = state.scores[1] ?? 0;
+    }
+}
+
+// ---------------------------------------------------------------------------
+// Hand title
+// ---------------------------------------------------------------------------
+function updateHandTitle(state) {
+    if (state.player_names && myPosition !== null) {
+        const el = document.querySelector('#player-hand-title');
+        if (el) el.textContent = `${state.player_names[myPosition]}'s Hand`;
+    }
+}
+
+// ---------------------------------------------------------------------------
+// Team / solo badge
+// ---------------------------------------------------------------------------
+function updatePlayerTeam(state) {
+    const el = document.querySelector('#player-team-display');
+    if (!el) return;
+
+    if (myPosition === null || !state.player_names) {
+        el.innerHTML = '<i class="fas fa-users me-1"></i>Loading...';
+        el.className = 'badge bg-secondary fs-6 p-2';
+        el.style.backgroundColor = '';
+        return;
+    }
+
+    el.className = 'badge fs-6 p-2';
+    el.style.color = 'white';
+
+    if (NUM_PLAYERS === 3) {
+        // Solo play — show the player's own name in their colour
+        el.innerHTML = `<i class="fas fa-user me-1"></i>Solo Play`;
+        el.style.backgroundColor = PLAYER_COLORS[myPosition];
+    } else {
+        // 4-player — show team and partner name
+        const isTeamPurple = myPosition % 2 === 0;
+        const teammatePos  = isTeamPurple ? (myPosition === 0 ? 2 : 0)
+                                          : (myPosition === 1 ? 3 : 1);
+        const teammateName = state.player_names[teammatePos] ?? 'Unknown';
+        const teamName     = isTeamPurple ? 'Team Purple' : 'Team Black';
+        const bg           = isTeamPurple ? '#6f42c1' : '#5e5e5e';
+        el.innerHTML = `<i class="fas fa-users me-1"></i>${teamName}<br><small>Partner: ${teammateName}</small>`;
+        el.style.backgroundColor = bg;
+    }
+}
+
+// ---------------------------------------------------------------------------
+// Current-turn indicator
+// ---------------------------------------------------------------------------
+function updateCurrentTurnIndicator(state) {
+    const el = document.querySelector('#current-player-display');
+    if (!el) return;
+
+    if (state.player_names && state.current_player !== null) {
+        if (state.current_player === myPosition) {
+            el.textContent = 'Your Turn!';
+            el.parentElement.className = 'alert alert-success mt-2 mb-0 py-2 text-center';
+        } else {
+            el.textContent = state.player_names[state.current_player];
+            el.parentElement.className = 'alert alert-primary mt-2 mb-0 py-2 text-center';
+        }
+    } else {
+        el.textContent = 'Waiting...';
+        el.parentElement.className = 'alert alert-secondary mt-2 mb-0 py-2 text-center';
+    }
+}
+
+// ---------------------------------------------------------------------------
+// Cut card display
+// ---------------------------------------------------------------------------
+function updateCutCardDisplay(state) {
+    const el = document.querySelector('#cut-card-display');
+    if (!el) return;
+    el.textContent = state.cut_card
+        ? `${state.cut_card.value}${getSuitSymbol(state.cut_card.suit)}`
+        : 'None';
+}
+
+// ---------------------------------------------------------------------------
+// Hand-owner badge (colour follows the owner's position)
+// ---------------------------------------------------------------------------
+function updateHandOwnerDisplay(state) {
+    const el = document.querySelector('#hand-owner-display');
+    if (!el) return;
+
+    el.className = 'fw-bold badge fs-6 py-2 px-3 text-white';
+
+    if (state.player_names && state.hand_owner !== null) {
+        el.textContent = state.player_names[state.hand_owner];
+        el.style.backgroundColor = PLAYER_COLORS[state.hand_owner] ?? '#6c757d';
+    } else {
+        el.textContent = 'None';
+        el.style.backgroundColor = '#6c757d';
+    }
+}
+
+// ---------------------------------------------------------------------------
+// Player's own hand
+// ---------------------------------------------------------------------------
 function updatePlayerHand(state) {
     const myHand = document.querySelector('#player-0-hand');
+    if (!myHand) return;
     myHand.innerHTML = '';
-    
+
     if (state.hand && state.hand.length > 0) {
         state.hand.forEach((card, index) => {
-            const cardElement = createGameCard(card, index);
-            
-            // Determine if card is playable
-            let isPlayable = false;
+            const cardEl = createGameCard(card, index);
+            let playable = false;
             if (state.current_player === myPosition) {
                 if (state.game_phase === 'playing') {
-                    isPlayable = true;
+                    playable = true;
                 } else if (state.game_phase === 'starter_decision') {
-                    // Only cut cards are playable during starter decision
-                    isPlayable = isCutCard(card, state.cut_card);
+                    playable = isCutCard(card, state.cut_card);
                 }
             }
-            
-            if (isPlayable) {
-                cardElement.classList.add('playable');
-            }
-            
-            myHand.appendChild(cardElement);
+            if (playable) cardEl.classList.add('playable');
+            myHand.appendChild(cardEl);
         });
     } else {
         myHand.innerHTML = '<p class="text-muted mb-0">No cards in hand</p>';
     }
 }
 
+// ---------------------------------------------------------------------------
+// Center pile — all cards played in the current hand
+// ---------------------------------------------------------------------------
 function updateCenterPile(state) {
-    const handCards = document.querySelector('#hand-cards');
-    if (!handCards) return;
-    
-    handCards.innerHTML = '';
-    
+    const el = document.querySelector('#hand-cards');
+    if (!el) return;
+    el.innerHTML = '';
+
     if (state.current_hand_cards && state.current_hand_cards.length > 0) {
-        // Show all cards from current hand
-        state.current_hand_cards.forEach((playedCard, index) => {
-            const [position, card] = playedCard;
-            const cardElement = createGameCard(card);
-            handCards.appendChild(cardElement);
+        state.current_hand_cards.forEach(([position, card]) => {
+            el.appendChild(createGameCard(card));
         });
     } else {
-        handCards.innerHTML = '<p class="text-muted mb-0">No cards played yet</p>';
+        el.innerHTML = '<p class="text-muted mb-0">No cards played yet</p>';
     }
 }
 
+// ---------------------------------------------------------------------------
+// Action buttons (take / forfeit)
+// ---------------------------------------------------------------------------
 function updateActionButtons(state) {
-    const actionButtons = document.getElementById('action-buttons');
-    const takeBtn = document.getElementById('take-btn');
-    const forfeitBtn = document.getElementById('forfeit-btn');
-    const actionMessage = document.getElementById('action-message');
-    
+    const panel       = document.getElementById('action-buttons');
+    const takeBtn     = document.getElementById('take-btn');
+    const forfeitBtn  = document.getElementById('forfeit-btn');
+    const msgEl       = document.getElementById('action-message');
+
     if (state.game_phase === 'starter_decision' && state.current_player === myPosition) {
-        actionButtons.style.display = 'block';
-        
-        // Show/hide buttons based on if player can take
+        panel.style.display = 'block';
         if (state.starter_can_take) {
-            takeBtn.style.display = 'inline-block';
+            takeBtn.style.display    = 'inline-block';
             forfeitBtn.style.display = 'none';
-            actionMessage.textContent = 'You own the hand! Take it or cut if you want to continue.';
+            msgEl.textContent = 'You own the hand! Take it, or play a cut card to continue.';
         } else {
-            takeBtn.style.display = 'none';
+            takeBtn.style.display    = 'none';
             forfeitBtn.style.display = 'inline-block';
-            actionMessage.textContent = 'You don\'t own the hand. Forfeit or play a cut card to continue.';
+            msgEl.textContent = "You don't own the hand. Forfeit or play a cut card to continue.";
         }
     } else {
-        actionButtons.style.display = 'none';
+        panel.style.display = 'none';
     }
 }
 
-function updatePlayerTeam(state) {
-    const playerTeamDisplay = document.querySelector('#player-team-display');
-    
-    if (myPosition !== null && state.player_names) {
-        // Team Purple: positions 0,2; Team Black: positions 1,3
-        const playerTeam = myPosition % 2 === 0 ? 1 : 2;
-        
-        // Find teammate (same team, different position)
-        let teammatePosition;
-        let teammateName = 'Unknown';
-        
-        if (playerTeam === 1) {
-            // Team Purple: positions 0,2
-            teammatePosition = myPosition === 0 ? 2 : 0;
-        } else {
-            // Team Black: positions 1,3
-            teammatePosition = myPosition === 1 ? 3 : 1;
-        }
-        
-        if (state.player_names[teammatePosition]) {
-            teammateName = state.player_names[teammatePosition];
-        }
-        
-        if (playerTeam === 1) {
-            playerTeamDisplay.innerHTML = `
-                <i class="fas fa-users me-1"></i>
-                Team Purple<br>
-                <small>Partner: ${teammateName}</small>
-            `;
-            playerTeamDisplay.className = 'badge fs-6 p-2';
-            playerTeamDisplay.style.backgroundColor = '#6f42c1';
-            playerTeamDisplay.style.color = 'white';
-        } else if (playerTeam === 2) {
-            playerTeamDisplay.innerHTML = `
-                <i class="fas fa-users me-1"></i>
-                Team Black<br>
-                <small>Partner: ${teammateName}</small>
-            `;
-            playerTeamDisplay.className = 'badge fs-6 p-2';
-            playerTeamDisplay.style.backgroundColor = '#5e5e5e';
-            playerTeamDisplay.style.color = 'white';
-        }
-    } else {
-        playerTeamDisplay.innerHTML = `
-            <i class="fas fa-users me-1"></i>
-            Loading...
-        `;
-        playerTeamDisplay.className = 'badge bg-secondary fs-6 p-2';
-        playerTeamDisplay.style.backgroundColor = '';
-        playerTeamDisplay.style.color = '';
-    }
-}
-
+// ---------------------------------------------------------------------------
+// Cut-card check (mirrors server-side logic)
+// ---------------------------------------------------------------------------
 function isCutCard(card, cutCard) {
     if (card.value === '7') return true;
-    if (cutCard && card.suit === cutCard.suit && card.value === cutCard.value) return true;
+    // In 3-player mode the 8♣ and 8♠ are wild — they always cut
+    if (NUM_PLAYERS === 3 && card.value === '8' && WILD_EIGHT_SUITS.has(card.suit)) return true;
+    // Same value as the current cut card
+    if (cutCard && card.value === cutCard.value) return true;
     return false;
 }
 
-function takeHand() {
-    socket.emit('take_hand', {
-        lobby_code: lobbyCode
-    });
-}
-
-function forfeitHand() {
-    socket.emit('forfeit_hand', {
-        lobby_code: lobbyCode
-    });
-}
-
+// ---------------------------------------------------------------------------
+// Card element factory
+// ---------------------------------------------------------------------------
 function createGameCard(card, index) {
-    const cardDiv = document.createElement('div');
-    cardDiv.className = `game-card ${card.suit}`;
-    cardDiv.innerHTML = `
+    const div = document.createElement('div');
+    div.className = `game-card ${card.suit}`;
+    div.innerHTML = `
         <div class="card-value">${card.value}</div>
         <div class="card-suit">${getSuitSymbol(card.suit)}</div>
     `;
-    
-    if (index !== undefined) {
-        cardDiv.onclick = () => playCard(index);
-    }
-    
-    return cardDiv;
+    if (index !== undefined) div.onclick = () => playCard(index);
+    return div;
 }
 
 function getSuitSymbol(suit) {
-    const symbols = {
-        'hearts': '♥',
-        'diamonds': '♦',
-        'clubs': '♣',
-        'spades': '♠'
-    };
-    return symbols[suit] || suit;
+    return {'hearts':'♥','diamonds':'♦','clubs':'♣','spades':'♠'}[suit] ?? suit;
 }
 
+// ---------------------------------------------------------------------------
+// Actions
+// ---------------------------------------------------------------------------
 function playCard(cardIndex) {
     if (gameState && gameState.current_player === myPosition) {
-        socket.emit('play_card', {
-            lobby_code: lobbyCode,
-            card_index: cardIndex
-        });
+        socket.emit('play_card', { lobby_code: lobbyCode, card_index: cardIndex });
     }
+}
+
+function takeHand()   { socket.emit('take_hand',    { lobby_code: lobbyCode }); }
+function forfeitHand(){ socket.emit('forfeit_hand', { lobby_code: lobbyCode }); }
+
+// ---------------------------------------------------------------------------
+// Toast helper
+// ---------------------------------------------------------------------------
+function showGameToast(message, type = 'info') {
+    const classes = {
+        error:   'bg-danger',
+        success: 'bg-success',
+        warning: 'bg-warning text-dark',
+        info:    'bg-info',
+    };
+    const icons = {
+        error:   'fas fa-exclamation-triangle',
+        success: 'fas fa-check-circle',
+        warning: 'fas fa-exclamation-triangle',
+        info:    'fas fa-info-circle',
+    };
+    const toast = document.createElement('div');
+    toast.className = 'position-fixed top-0 start-50 translate-middle-x p-3';
+    toast.style.zIndex = '9999';
+    toast.innerHTML = `
+        <div class="toast show align-items-center text-white ${classes[type] ?? 'bg-info'} border-0" role="alert">
+            <div class="d-flex">
+                <div class="toast-body">
+                    <i class="${icons[type] ?? 'fas fa-info-circle'} me-2"></i>${message}
+                </div>
+                <button type="button" class="btn-close btn-close-white me-2 m-auto"
+                        onclick="this.closest('.position-fixed').remove()" aria-label="Close"></button>
+            </div>
+        </div>`;
+    document.body.appendChild(toast);
+    setTimeout(() => { if (toast.parentNode) toast.remove(); }, 2000);
 }
 </script>
 

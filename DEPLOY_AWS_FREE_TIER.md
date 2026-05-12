@@ -69,6 +69,7 @@ Optional cron (daily at 03:30):
 
 ```bash
 crontab -e
+# Replace `/path/to/Septica` with your real clone directory.
 # Add:
 30 3 * * * cd /path/to/Septica && /bin/bash ./deploy/aws/scripts/backup_sqlite_to_s3.sh septica-db-backups eu-north-1 >> $HOME/septica-backup.log 2>&1
 ```

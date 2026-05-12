@@ -108,7 +108,14 @@
                                                             <i class="fas fa-crown me-1"></i> Owner
                                                         </span>
                                                     {% endif %}
-                                                    {% if player.user.id == user.id %}
+                                                    {% if player.user.is_bot %}
+                                                        <span class="badge bg-secondary me-2 mb-1">🤖 {{ player.user.bot_difficulty }}</span>
+                                                        {% if is_owner %}
+                                                        <form method="POST" action="{{ url_for('lobbies.remove_bot', lobby_code=lobby.code, bot_user_id=player.user.id) }}" class="d-inline">
+                                                            <button type="submit" class="btn btn-sm btn-outline-danger mb-1">Remove</button>
+                                                        </form>
+                                                        {% endif %}
+                                                    {% elif player.user.id == user.id %}
                                                         <form method="POST" action="{{ url_for('lobbies.change_team', lobby_code=lobby.code) }}" class="d-inline">
                                                             <input type="hidden" name="team" value="0">
                                                             <button type="submit" class="btn btn-sm btn-outline-secondary team-leave-btn mb-1">
@@ -142,7 +149,14 @@
                                                             <i class="fas fa-crown me-1"></i> Owner
                                                         </span>
                                                     {% endif %}
-                                                    {% if player.user.id == user.id %}
+                                                    {% if player.user.is_bot %}
+                                                        <span class="badge bg-secondary me-2 mb-1">🤖 {{ player.user.bot_difficulty }}</span>
+                                                        {% if is_owner %}
+                                                        <form method="POST" action="{{ url_for('lobbies.remove_bot', lobby_code=lobby.code, bot_user_id=player.user.id) }}" class="d-inline">
+                                                            <button type="submit" class="btn btn-sm btn-outline-danger mb-1">Remove</button>
+                                                        </form>
+                                                        {% endif %}
+                                                    {% elif player.user.id == user.id %}
                                                         <form method="POST" action="{{ url_for('lobbies.change_team', lobby_code=lobby.code) }}" class="d-inline">
                                                             <input type="hidden" name="team" value="0">
                                                             <button type="submit" class="btn btn-sm btn-outline-secondary team-leave-btn mb-1">
@@ -307,7 +321,44 @@
                 </div>
             </div>
             {% endif %}
-            
+
+            {% if is_owner and not lobby.game_started and not lobby.is_full %}
+            <div class="card shadow mb-4">
+                <div class="card-header bg-dark text-white">
+                    <h4 class="mb-0"><i class="fas fa-robot me-2"></i> Add Bot</h4>
+                </div>
+                <div class="card-body">
+                    <p class="text-muted small mb-3">Fill empty slots with AI players. Bots play automatically after a short delay.</p>
+                    <div class="d-grid gap-2">
+                        <form method="POST" action="{{ url_for('lobbies.add_bot', lobby_code=lobby.code) }}">
+                            <input type="hidden" name="difficulty" value="easy">
+                            <button type="submit" class="btn btn-outline-success w-100">
+                                🤖 Add Easy Bot <small class="text-muted">(random play)</small>
+                            </button>
+                        </form>
+                        <form method="POST" action="{{ url_for('lobbies.add_bot', lobby_code=lobby.code) }}">
+                            <input type="hidden" name="difficulty" value="medium">
+                            <button type="submit" class="btn btn-outline-warning w-100">
+                                🤖 Add Medium Bot <small class="text-muted">(basic strategy)</small>
+                            </button>
+                        </form>
+                        <form method="POST" action="{{ url_for('lobbies.add_bot', lobby_code=lobby.code) }}">
+                            <input type="hidden" name="difficulty" value="hard">
+                            <button type="submit" class="btn btn-outline-danger w-100">
+                                🤖 Add Hard Bot <small class="text-muted">(advanced strategy)</small>
+                            </button>
+                        </form>
+                        <form method="POST" action="{{ url_for('lobbies.add_bot', lobby_code=lobby.code) }}">
+                            <input type="hidden" name="difficulty" value="smart">
+                            <button type="submit" class="btn btn-outline-primary w-100">
+                                🤖 Add Smart Bot <small class="text-muted">(Monte Carlo)</small>
+                            </button>
+                        </form>
+                    </div>
+                </div>
+            </div>
+            {% endif %}
+
             <div class="card shadow">
                 <div class="card-header bg-info text-white">
                     <h4 class="mb-0">Game Information</h4>
@@ -650,7 +701,7 @@ function addPlayerToTeam(playerData, teamNumber, showButtons = true) {
     const isCurrentUser = playerData.user_id === currentUserId;
     const isOwner = document.querySelector(`.player-item[data-user-id="${playerData.user_id}"] .badge.bg-warning`) !== null;
 
-    const leaveBtn = (showButtons && isCurrentUser) ? `
+    const leaveBtn = (showButtons && isCurrentUser && !playerData.is_bot) ? `
         <form method="POST" action="/lobby/${lobbyCode}/change_team" class="d-inline">
             <input type="hidden" name="team" value="0">
             <button type="submit" class="btn btn-sm btn-outline-secondary ms-2 team-leave-btn">
@@ -663,12 +714,19 @@ function addPlayerToTeam(playerData, teamNumber, showButtons = true) {
             <i class="fas fa-crown me-1"></i> Owner
         </span>` : '';
 
+    const botBadge = playerData.is_bot ? `
+        <span class="badge bg-secondary ms-1">🤖 ${playerData.bot_difficulty || ''}</span>
+        ${currentUserId === {{ lobby.owner_id }} ? `
+        <form method="POST" action="/lobby/${lobbyCode}/remove_bot/${playerData.user_id}" class="d-inline">
+            <button type="submit" class="btn btn-sm btn-outline-danger ms-1">Remove</button>
+        </form>` : ''}` : '';
+
     newPlayerEl.innerHTML = `
         <div>
-            <i class="fas fa-user me-2"></i>
+            <i class="fas fa-${playerData.is_bot ? 'robot' : 'user'} me-2"></i>
             <span class="fw-bold">${playerData.username}</span>
         </div>
-        <div>${ownerBadge}${leaveBtn}</div>`;
+        <div>${ownerBadge}${botBadge}${leaveBtn}</div>`;
 
     teamList.appendChild(newPlayerEl);
     updateTeamCount(teamNumber);

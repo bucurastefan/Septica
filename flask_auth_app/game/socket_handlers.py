@@ -1,7 +1,7 @@
 import logging
 from datetime import datetime
 
-from flask import session
+from flask import session, current_app
 from flask_socketio import emit, join_room, leave_room
 
 from extensions import db, socketio
@@ -97,6 +97,11 @@ def handle_initialize_game(data):
         game_state['player_names'] = player_names
         emit('game_state_update', game_state)
 
+        # If the starting player is a bot, schedule their first move.
+        # The guard inside _bot_move_task (current_player != position) ensures
+        # only one task actually fires even if multiple humans trigger this.
+        _schedule_bot_turn_if_needed(lobby_code, lobby_players)
+
 
 @socketio.on('play_card')
 def handle_play_card(data):
@@ -133,6 +138,7 @@ def handle_play_card(data):
         if _handle_game_completion(lobby_code, lobby, lobby_players):
             return
         _broadcast_game_state(lobby_code, lobby_players, player_names)
+        _schedule_bot_turn_if_needed(lobby_code, lobby_players)
     else:
         emit('game_error', {'message': error})
 
@@ -161,7 +167,8 @@ def _broadcast_game_state(lobby_code, lobby_players, player_names):
         state = games[lobby_code].get_game_state(i)
         state['position'] = i
         state['player_names'] = player_names
-        emit('game_state_update', state, room=f"{lobby_code}_player_{i}")
+        # Use socketio.emit so this works from both request context and background tasks
+        socketio.emit('game_state_update', state, room=f"{lobby_code}_player_{i}")
 
 
 def _handle_hand_action(data, action):
@@ -187,6 +194,7 @@ def _handle_hand_action(data, action):
         if _handle_game_completion(lobby_code, lobby, lobby_players):
             return
         _broadcast_game_state(lobby_code, lobby_players, player_names)
+        _schedule_bot_turn_if_needed(lobby_code, lobby_players)
     else:
         emit('game_error', {'message': error})
 
@@ -196,14 +204,21 @@ def _handle_game_completion(lobby_code, lobby, lobby_players):
     if not game.is_game_finished():
         return False
 
+    # Push the final board state FIRST so every client sees the last card before
+    # the game_completed event triggers the result overlay.
+    player_names = [lp.user.username for lp in lobby_players]
+    for i in range(len(lobby_players)):
+        state = game.get_game_state(i)
+        state['position'] = i
+        state['player_names'] = player_names
+        socketio.emit('game_state_update', state, room=f"{lobby_code}_player_{i}")
+
     result = game.get_game_result()
     winner = result['winner']
     is_tie = result['is_tie']
     scores = result['scores']
     hands_won = result['hands_won']
     num_players = game.num_players
-
-    player_names = [lp.user.username for lp in lobby_players]
 
     lobby.total_games_played += 1
 
@@ -264,8 +279,8 @@ def _handle_game_completion(lobby_code, lobby, lobby_players):
     }
 
     for i in range(len(lobby_players)):
-        emit('game_completed', completion_data, room=f"{lobby_code}_player_{i}")
-    emit('game_completed', completion_data, room=lobby_code)
+        socketio.emit('game_completed', completion_data, room=f"{lobby_code}_player_{i}")
+    socketio.emit('game_completed', completion_data, room=lobby_code)
 
     return True
 
@@ -339,12 +354,100 @@ def _resolve_3player_outcome(lobby, player_names, winner, is_tie, scores, hands_
 
 
 def _get_or_create_stats(user_id):
+    from models import User
+    user = User.query.get(user_id)
+    if user and user.is_bot:
+        return None  # bots don't get stats tracked
     stats = PlayerStats.query.filter_by(user_id=user_id).first()
     if not stats:
         stats = PlayerStats(user_id=user_id)
         db.session.add(stats)
         db.session.flush()
     return stats
+
+
+# ---------------------------------------------------------------------------
+# Bot turn scheduling
+# ---------------------------------------------------------------------------
+
+def _schedule_bot_turn_if_needed(lobby_code, lobby_players):
+    """Check if the current player is a bot and schedule their move."""
+    if lobby_code not in games:
+        return
+    game = games[lobby_code]
+    if game.game_phase == 'finished':
+        return
+
+    pos = game.current_player
+    if pos >= len(lobby_players):
+        return
+
+    lp = lobby_players[pos]
+    user = User.query.get(lp.user_id)
+    if not user or not user.is_bot:
+        return
+
+    difficulty = user.bot_difficulty or 'easy'
+    app = current_app._get_current_object()
+    socketio.start_background_task(_bot_move_task, app, lobby_code, pos, difficulty)
+
+
+def _bot_move_task(app, lobby_code, position, difficulty):
+    """Background task: wait 5 s then execute the bot's chosen action."""
+    import eventlet
+    eventlet.sleep(2.5)
+
+    with app.app_context():
+        if lobby_code not in games:
+            return
+
+        game = games[lobby_code]
+
+        # Guard: verify it is still this bot's turn (a human could not have
+        # moved, but game could have ended or state changed)
+        if game.current_player != position or game.game_phase == 'finished':
+            return
+
+        lobby = Lobby.query.filter_by(code=lobby_code).first()
+        if not lobby:
+            return
+
+        lobby_players = get_ordered_players(lobby.id, lobby.player_count_type)
+        player_names = [lp.user.username for lp in lobby_players]
+
+        game_state = game.get_game_state(position)
+        game_state['position'] = position
+
+        from game.bot_logic import choose_action
+        game_obj = game if difficulty == 'smart' else None
+        action, card_idx = choose_action(game_state, difficulty, game_obj)
+
+        # Execute the chosen action
+        if action == 'play':
+            success, error = game.play_card(position, card_idx)
+        elif action == 'take':
+            success, error = game.take_hand()
+        else:
+            success, error = game.forfeit_hand()
+
+        if not success:
+            logger.warning(f"Bot at pos {position} chose invalid action '{action}': {error}")
+            # Attempt a safe fallback — always valid actions
+            if game.game_phase == 'starter_decision' and 'forfeit' in game_state.get('available_actions', []):
+                success, _ = game.forfeit_hand()
+            elif game.game_phase == 'playing' and game.players.get(position):
+                success, _ = game.play_card(position, 0)
+
+        if not success:
+            return
+
+        if _handle_game_completion(lobby_code, lobby, lobby_players):
+            return
+
+        _broadcast_game_state(lobby_code, lobby_players, player_names)
+
+        # Chain: schedule the next bot if needed
+        _schedule_bot_turn_if_needed(lobby_code, lobby_players)
 
 
 def _update_player_statistics(lobby, lobby_players, winner, is_tie, scores,
@@ -370,6 +473,8 @@ def _update_stats_3player(lobby_players, winner, is_tie, scores, hands_won, is_p
     if is_tie:
         for lp in lobby_players:
             s = _get_or_create_stats(lp.user_id)
+            if s is None:
+                continue
             s.games_played += 1
             s.total_hands_played += total_hands
             s.current_lose_streak = 0
@@ -381,6 +486,8 @@ def _update_stats_3player(lobby_players, winner, is_tie, scores, hands_won, is_p
 
     for i, lp in enumerate(lobby_players):
         s = _get_or_create_stats(lp.user_id)
+        if s is None:
+            continue
         s.games_played += 1
         s.total_hands_played += total_hands
         s.last_updated = datetime.utcnow()
@@ -412,6 +519,8 @@ def _update_stats_4player(lobby_players, winner, is_tie, scores, hands_won, is_p
     if is_tie:
         for lp in lobby_players:
             s = _get_or_create_stats(lp.user_id)
+            if s is None:
+                continue
             s.games_played += 1
             s.total_hands_played += total_hands
             s.current_lose_streak = 0
@@ -431,6 +540,8 @@ def _update_stats_4player(lobby_players, winner, is_tie, scores, hands_won, is_p
 
     for uid in winning_ids:
         s = _get_or_create_stats(uid)
+        if s is None:
+            continue
         s.games_played += 1
         s.games_won += 1
         s.total_points_scored += winning_score
@@ -447,6 +558,8 @@ def _update_stats_4player(lobby_players, winner, is_tie, scores, hands_won, is_p
 
     for uid in losing_ids:
         s = _get_or_create_stats(uid)
+        if s is None:
+            continue
         s.games_played += 1
         s.games_lost += 1
         s.total_points_scored += losing_score

@@ -359,16 +359,30 @@ def update_settings(lobby_code):
         if lobby.player_count_type != new_player_count_type:
             for player in lobby.players:
                 player.team = 0
+
             lobby.player_count_type = new_player_count_type
             if lobby.name and '(' in lobby.name:
                 lobby.name = lobby.name.split('(')[0].strip()
 
-            # In 3-player mode seats are automatic — assign everyone right now
-            # in join order so the first to arrive gets seat 1, etc.
+            # Stats from a different game mode are meaningless — reset them
+            lobby.team1_wins = 0
+            lobby.team2_wins = 0
+            lobby.team3_wins = 0
+            lobby.total_games_played = 0
+            lobby.next_game_multiplier = 1
+
+            db.session.flush()
+
             if new_player_count_type == 3:
-                db.session.flush()  # make the team=0 resets visible to queries below
+                # 3-player: auto-assign everyone
                 for lp in sorted(lobby.players, key=lambda p: p.joined_at):
                     lobby.assign_team(lp.user_id)
+            else:
+                # 4-player: auto-assign bots only (humans pick their team manually)
+                for lp in sorted(lobby.players, key=lambda p: p.joined_at):
+                    u = User.query.get(lp.user_id)
+                    if u and u.is_bot:
+                        lobby.assign_team(lp.user_id)
 
             db.session.commit()
 
@@ -584,4 +598,140 @@ def vote_reset_stats(lobby_code):
         logger.error(f"Error voting for stats reset: {e}")
         db.session.rollback()
         flash('An error occurred while voting. Please try again.', 'error')
+        return redirect(url_for('lobbies.detail', lobby_code=lobby_code))
+
+
+# ---------------------------------------------------------------------------
+# Bot management
+# ---------------------------------------------------------------------------
+
+@bp.route('/lobby/<lobby_code>/add_bot', methods=['POST'])
+def add_bot(lobby_code):
+    if 'username' not in session:
+        return redirect(url_for('auth.login'))
+
+    try:
+        user = User.query.filter_by(username=session['username']).first()
+        lobby = Lobby.query.filter_by(code=lobby_code, is_active=True).first()
+
+        if not lobby:
+            flash('Lobby not found!', 'error')
+            return redirect(url_for('lobbies.index'))
+
+        if lobby.owner_id != user.id:
+            flash('Only the lobby owner can add bots.', 'error')
+            return redirect(url_for('lobbies.detail', lobby_code=lobby_code))
+
+        if lobby.game_started:
+            flash('Cannot add bots after the game has started.', 'error')
+            return redirect(url_for('lobbies.detail', lobby_code=lobby_code))
+
+        if lobby.is_full:
+            flash('Lobby is already full.', 'error')
+            return redirect(url_for('lobbies.detail', lobby_code=lobby_code))
+
+        if lobby.player_count_type == 4 and lobby.player_count >= 4:
+            flash('Cannot switch to 3-player mode while 4 players are in the lobby.', 'error')
+            return redirect(url_for('lobbies.detail', lobby_code=lobby_code))
+
+        difficulty = request.form.get('difficulty', 'easy')
+        if difficulty not in ('easy', 'medium', 'hard', 'smart'):
+            difficulty = 'easy'
+
+        # Create the bot user with a unique name
+        import uuid
+        bot_username = f"Bot_{difficulty.capitalize()}_{uuid.uuid4().hex[:4].upper()}"
+        bot = User(
+            username=bot_username,
+            email=f"bot_{uuid.uuid4().hex}@bot.internal",
+            password='',
+            is_bot=True,
+            bot_difficulty=difficulty,
+        )
+        db.session.add(bot)
+        db.session.flush()
+
+        # Auto-assign team (works for both 3-player and 4-player)
+        if lobby.player_count_type == 3:
+            taken = {p.team for p in lobby.players}
+            team = next((t for t in [1, 2, 3] if t not in taken), 0)
+        else:
+            team1 = len(lobby.team1_players)
+            team2 = len(lobby.team2_players)
+            if team1 <= team2 and team1 < 2:
+                team = 1
+            elif team2 < 2:
+                team = 2
+            else:
+                team = 0
+
+        lp = LobbyPlayer(lobby_id=lobby.id, user_id=bot.id, team=team)
+        db.session.add(lp)
+        db.session.commit()
+
+        from datetime import timezone
+        joined_at = datetime.now(timezone.utc).strftime('%H:%M:%S')
+        socketio.emit('player_joined', {
+            'username': bot_username,
+            'user_id': bot.id,
+            'joined_at': joined_at,
+            'team': team,
+            'is_bot': True,
+            'bot_difficulty': difficulty,
+        }, room=lobby_code)
+
+        if lobby.is_public:
+            socketio.emit('lobbies_list_changed')
+
+        flash(f'Bot ({difficulty}) added to the lobby.', 'success')
+        return redirect(url_for('lobbies.detail', lobby_code=lobby_code))
+    except Exception as e:
+        logger.error(f"Error adding bot: {e}")
+        db.session.rollback()
+        flash('An error occurred while adding bot.', 'error')
+        return redirect(url_for('lobbies.detail', lobby_code=lobby_code))
+
+
+@bp.route('/lobby/<lobby_code>/remove_bot/<int:bot_user_id>', methods=['POST'])
+def remove_bot(lobby_code, bot_user_id):
+    if 'username' not in session:
+        return redirect(url_for('auth.login'))
+
+    try:
+        user = User.query.filter_by(username=session['username']).first()
+        lobby = Lobby.query.filter_by(code=lobby_code, is_active=True).first()
+
+        if not lobby or lobby.owner_id != user.id:
+            flash('Only the lobby owner can remove bots.', 'error')
+            return redirect(url_for('lobbies.detail', lobby_code=lobby_code))
+
+        bot = User.query.get(bot_user_id)
+        if not bot or not bot.is_bot:
+            flash('Bot not found.', 'error')
+            return redirect(url_for('lobbies.detail', lobby_code=lobby_code))
+
+        # Remove any stale PlayerStats (bots shouldn't have them, but clean up just in case)
+        from models import PlayerStats
+        stale_stats = PlayerStats.query.filter_by(user_id=bot.id).first()
+        if stale_stats:
+            db.session.delete(stale_stats)
+
+        # Cascade on User already deletes LobbyPlayer, but be explicit to be safe
+        lp = LobbyPlayer.query.filter_by(lobby_id=lobby.id, user_id=bot.id).first()
+        if lp:
+            db.session.delete(lp)
+
+        db.session.delete(bot)
+        db.session.commit()
+
+        socketio.emit('player_left', {'username': bot.username, 'user_id': bot_user_id}, room=lobby_code)
+        if lobby.is_public:
+            socketio.emit('lobbies_list_changed')
+
+        flash('Bot removed from the lobby.', 'success')
+        return redirect(url_for('lobbies.detail', lobby_code=lobby_code))
+    except Exception as e:
+        logger.error(f"Error removing bot: {e}")
+        db.session.rollback()
+        flash('An error occurred while removing bot.', 'error')
         return redirect(url_for('lobbies.detail', lobby_code=lobby_code))

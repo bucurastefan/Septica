@@ -1,0 +1,28 @@
+# Run from repository root (expects ./flask_auth_app and ./.env.ec2)
+services:
+  web:
+    build:
+      context: ../../flask_auth_app
+    env_file:
+      - ../../.env.ec2
+    volumes:
+      - septica_data:/app/data
+    restart: unless-stopped
+
+  caddy:
+    image: caddy:2-alpine
+    depends_on:
+      - web
+    ports:
+      - "80:80"
+      - "443:443"
+    volumes:
+      - ./Caddyfile:/etc/caddy/Caddyfile:ro
+      - caddy_data:/data
+      - caddy_config:/config
+    restart: unless-stopped
+
+volumes:
+  septica_data:
+  caddy_data:
+  caddy_config:

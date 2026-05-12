@@ -18,6 +18,11 @@ def create_app(config_name=None):
     cfg = config[config_name]
     app.config.from_object(cfg)
 
+    # Explicitly read SECRET_KEY from environment at runtime so it always
+    # reflects the current process environment, regardless of class-level evaluation order.
+    if os.environ.get('SECRET_KEY'):
+        app.config['SECRET_KEY'] = os.environ['SECRET_KEY']
+
     # Run any class-level init validation (raises in production if SECRET_KEY missing)
     if hasattr(cfg, 'init_app'):
         cfg.init_app(app)

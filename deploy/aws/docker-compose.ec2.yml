@@ -5,9 +5,6 @@ services:
       context: ../../flask_auth_app
     env_file:
       - ../../.env.ec2
-    environment:
-      FLASK_ENV: production
-      DATABASE_URL: sqlite:////app/data/septica.db
     volumes:
       - septica_data:/app/data
     restart: unless-stopped

@@ -1,3 +1,4 @@
+# Run from repository root (expects ./flask_auth_app and ./.env.ec2)
 services:
   web:
     build:

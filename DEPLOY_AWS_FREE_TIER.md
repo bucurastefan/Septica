@@ -46,6 +46,7 @@ Point your domain DNS `A` record to your EC2 public IP.
 ## 5) Start app
 
 ```bash
+# Run this from repository root (where ./flask_auth_app exists)
 docker compose -f deploy/aws/docker-compose.ec2.yml --env-file .env.ec2 up -d --build
 ```
 
@@ -69,7 +70,7 @@ Optional cron (daily at 03:30):
 ```bash
 crontab -e
 # Add:
-30 3 * * * cd /home/ubuntu/Septica && /bin/bash ./deploy/aws/scripts/backup_sqlite_to_s3.sh septica-db-backups eu-north-1 >> /var/log/septica-backup.log 2>&1
+30 3 * * * cd /home/ubuntu/Septica && /bin/bash ./deploy/aws/scripts/backup_sqlite_to_s3.sh septica-db-backups eu-north-1 >> /home/ubuntu/septica-backup.log 2>&1
 ```
 
 ## 7) Cost controls (important)

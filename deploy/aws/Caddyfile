@@ -1,0 +1,6 @@
+# Replace with your real domain.
+your-domain.com {
+    encode gzip
+
+    reverse_proxy web:5000
+}

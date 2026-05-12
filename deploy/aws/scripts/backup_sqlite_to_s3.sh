@@ -11,7 +11,7 @@ BACKUP_FILE="septica-${TIMESTAMP}.db"
 BACKUP_PATH="${BACKUP_DIR}/${BACKUP_FILE}"
 
 if [[ -z "$BUCKET_NAME" ]]; then
-  echo "Usage: $0 <s3-bucket-name> [aws-region]"
+  echo "Usage: $0 <s3-bucket-name> [aws-region (default: eu-north-1)]"
   exit 1
 fi
 

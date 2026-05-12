@@ -15,9 +15,10 @@ env/
 *.sqlite
 *.sqlite3
 
-# Secrets / environment
+# Secrets / environment — .env.example is a template and IS tracked
 .env
 .env.*
+!.env.example
 *.key
 
 # IDE

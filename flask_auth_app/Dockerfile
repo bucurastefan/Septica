@@ -1,17 +1,24 @@
-# Use Python 3.12 as the base image
 FROM python:3.12-slim
 
-# Set the working directory in the container
+# Non-root user for security
+RUN useradd --create-home appuser
+
 WORKDIR /app
 
-# Copy the current directory contents into the container at /app
-COPY . /app
-
-# Install any needed packages specified in requirements.txt
+# Install dependencies first (layer-cached separately from app code)
+COPY requirements.txt .
 RUN pip install --no-cache-dir -r requirements.txt
 
-# Expose port 5000 for the Flask app
+# Copy application code
+COPY . .
+
+# Persistent data directory (mount a volume here to survive container restarts)
+RUN mkdir -p /app/data && chown appuser:appuser /app/data
+
+USER appuser
+
 EXPOSE 5000
 
-# Define default command to run the app, allowing external connections by default
-CMD ["python", "app.py"]
+# Run database migrations then start the production server
+CMD flask db upgrade && \
+    gunicorn --worker-class eventlet -w 1 --bind 0.0.0.0:5000 app:application

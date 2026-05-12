@@ -1,4 +1,5 @@
 import logging
+import re
 from datetime import datetime
 
 from flask import render_template, redirect, url_for, request, flash, session
@@ -11,15 +12,29 @@ from . import bp
 
 logger = logging.getLogger(__name__)
 
+_USERNAME_RE = re.compile(r'^[A-Za-z0-9_]{3,20}$')
+_EMAIL_RE = re.compile(r'^[^@\s]+@[^@\s]+\.[^@\s]+$')
+
+
+def _validate_registration(username, email, password):
+    """Return an error string or None if inputs are valid."""
+    if not username or not _USERNAME_RE.match(username):
+        return 'Username must be 3–20 characters (letters, digits, underscores only).'
+    if not email or not _EMAIL_RE.match(email) or len(email) > 120:
+        return 'Please enter a valid email address.'
+    if not password or len(password) < 8:
+        return 'Password must be at least 8 characters.'
+    return None
+
 
 @bp.route('/login', methods=['GET', 'POST'])
 def login():
     if request.method == 'POST':
-        username = request.form.get('username')
-        password = request.form.get('password')
+        username = request.form.get('username', '').strip()
+        password = request.form.get('password', '')
         try:
             user = User.query.filter_by(username=username).first()
-            if user and check_password_hash(user.password, password):
+            if user and not user.is_bot and check_password_hash(user.password, password):
                 login_user(user)
                 session['username'] = username
                 session['is_admin'] = bool(user.is_admin)
@@ -36,9 +51,15 @@ def login():
 @bp.route('/register', methods=['GET', 'POST'])
 def register():
     if request.method == 'POST':
-        username = request.form.get('username')
-        email = request.form.get('email')
-        password = request.form.get('password')
+        username = request.form.get('username', '').strip()
+        email = request.form.get('email', '').strip().lower()
+        password = request.form.get('password', '')
+
+        error = _validate_registration(username, email, password)
+        if error:
+            flash(error, 'error')
+            return redirect(url_for('auth.register'))
+
         try:
             existing_user = User.query.filter(
                 (User.username == username) | (User.email == email)
@@ -71,8 +92,8 @@ def guest_login():
         flash('Please enter a guest name!', 'error')
         return redirect(url_for('auth.login'))
 
-    if len(guest_name) > 20:
-        flash('Guest name must be 20 characters or less!', 'error')
+    if not _USERNAME_RE.match(guest_name):
+        flash('Guest name must be 3–20 characters (letters, digits, underscores only).', 'error')
         return redirect(url_for('auth.login'))
 
     if User.query.filter_by(username=guest_name).first():
@@ -80,10 +101,11 @@ def guest_login():
         return redirect(url_for('auth.login'))
 
     try:
+        import secrets
         guest_user = User(
             username=guest_name,
-            email=f"guest_{datetime.utcnow().timestamp()}@temporary.com",
-            password="guest_temp_password",
+            email=f"guest_{secrets.token_hex(8)}@temporary.invalid",
+            password=generate_password_hash(secrets.token_hex(16)),
             is_admin=False,
         )
         db.session.add(guest_user)
@@ -113,16 +135,20 @@ def convert_guest():
         return redirect(url_for('lobbies.index'))
 
     if request.method == 'POST':
-        email = request.form.get('email')
-        password = request.form.get('password')
+        email = request.form.get('email', '').strip().lower()
+        password = request.form.get('password', '')
 
-        if not email or not password:
-            flash('Please provide both email and password.', 'error')
+        if not email or not _EMAIL_RE.match(email) or len(email) > 120:
+            flash('Please enter a valid email address.', 'error')
+            return render_template('convert_guest.html')
+
+        if not password or len(password) < 8:
+            flash('Password must be at least 8 characters.', 'error')
             return render_template('convert_guest.html')
 
         try:
             existing_user = User.query.filter_by(email=email).first()
-            if existing_user and not existing_user.email.startswith('guest_'):
+            if existing_user and not existing_user.email.endswith('@temporary.invalid'):
                 flash('This email is already registered.', 'error')
                 return render_template('convert_guest.html')
 

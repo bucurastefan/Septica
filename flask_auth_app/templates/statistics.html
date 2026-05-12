@@ -5,80 +5,86 @@
 {% block content %}
 <div class="container animate-fade-in">
     <h1 class="page-title text-center mb-4">Player Statistics</h1>
-    
-    <!-- Player's Personal Stats -->
-    <div class="row mb-4">
-        <div class="col-12">
-            <div class="card shadow">
+
+    <!-- Mode tabs -->
+    <ul class="nav nav-tabs mb-4" id="statsTabs" role="tablist">
+        <li class="nav-item" role="presentation">
+            <button class="nav-link active" id="tab-4p-btn" data-bs-toggle="tab"
+                    data-bs-target="#tab-4p" type="button" role="tab">
+                <i class="fas fa-users me-1"></i> 4-Player
+                <span class="badge bg-secondary ms-1">{{ stats.games_played }} games</span>
+            </button>
+        </li>
+        <li class="nav-item" role="presentation">
+            <button class="nav-link" id="tab-3p-btn" data-bs-toggle="tab"
+                    data-bs-target="#tab-3p" type="button" role="tab">
+                <i class="fas fa-user-friends me-1"></i> 3-Player
+                <span class="badge bg-secondary ms-1">{{ stats.games_played_3p }} games</span>
+            </button>
+        </li>
+    </ul>
+
+    <div class="tab-content" id="statsTabContent">
+
+        <!-- ── 4-Player tab ────────────────────────────────────────────── -->
+        <div class="tab-pane fade show active" id="tab-4p" role="tabpanel">
+
+            <!-- Personal stats -->
+            <div class="card shadow mb-4">
                 <div class="card-header">
-                    <i class="fas fa-user me-2"></i> {{ user.username }}'s Statistics
-                    <span class="badge bg-primary ms-2">Rank #{{ user_rank }}</span>
+                    <i class="fas fa-user me-2"></i> {{ user.username }}'s 4-Player Statistics
+                    <span class="badge bg-primary ms-2">Rank #{{ user_rank_4p }}</span>
                 </div>
                 <div class="card-body">
                     <div class="row">
-                        <!-- Games Overview -->
                         <div class="col-md-3">
                             <div class="stats-card text-center">
-                                <div class="stats-icon mx-auto">
-                                    <i class="fas fa-gamepad"></i>
-                                </div>
+                                <div class="stats-icon mx-auto"><i class="fas fa-gamepad"></i></div>
                                 <div class="stats-value">{{ stats.games_played }}</div>
                                 <div class="stats-label">Games Played</div>
                             </div>
                         </div>
                         <div class="col-md-3">
                             <div class="stats-card text-center">
-                                <div class="stats-icon mx-auto">
-                                    <i class="fas fa-trophy"></i>
-                                </div>
+                                <div class="stats-icon mx-auto"><i class="fas fa-trophy"></i></div>
                                 <div class="stats-value text-success">{{ stats.games_won }}</div>
                                 <div class="stats-label">Games Won</div>
                             </div>
                         </div>
                         <div class="col-md-3">
                             <div class="stats-card text-center">
-                                <div class="stats-icon mx-auto">
-                                    <i class="fas fa-times-circle"></i>
-                                </div>
+                                <div class="stats-icon mx-auto"><i class="fas fa-times-circle"></i></div>
                                 <div class="stats-value text-danger">{{ stats.games_lost }}</div>
                                 <div class="stats-label">Games Lost</div>
                             </div>
                         </div>
                         <div class="col-md-3">
                             <div class="stats-card text-center">
-                                <div class="stats-icon mx-auto">
-                                    <i class="fas fa-percentage"></i>
-                                </div>
+                                <div class="stats-icon mx-auto"><i class="fas fa-percentage"></i></div>
                                 <div class="stats-value text-primary">{{ stats.win_rate }}%</div>
                                 <div class="stats-label">Win Rate</div>
                             </div>
                         </div>
                     </div>
-                    
+
                     <hr class="my-4">
-                    
-                    <!-- Detailed Stats -->
+
                     <div class="row">
                         <div class="col-md-6">
                             <h5 class="mb-3"><i class="fas fa-chart-line me-2"></i> Performance</h5>
                             <dl class="row">
                                 <dt class="col-sm-6">Total Points Scored:</dt>
                                 <dd class="col-sm-6 text-success">{{ stats.total_points_scored }}</dd>
-                                
                                 <dt class="col-sm-6">Total Points Conceded:</dt>
                                 <dd class="col-sm-6 text-danger">{{ stats.total_points_conceded }}</dd>
-                                
                                 <dt class="col-sm-6">Point Differential:</dt>
                                 <dd class="col-sm-6 {% if stats.point_differential >= 0 %}text-success{% else %}text-danger{% endif %}">
                                     {{ stats.point_differential }}
                                 </dd>
-                                
                                 <dt class="col-sm-6">Avg Points/Game:</dt>
                                 <dd class="col-sm-6">{{ stats.average_points_per_game }}</dd>
-                                
                                 <dt class="col-sm-6">Avg Conceded/Game:</dt>
                                 <dd class="col-sm-6">{{ stats.average_points_conceded_per_game }}</dd>
-                                
                                 <dt class="col-sm-6">Total Hands Played:</dt>
                                 <dd class="col-sm-6">{{ stats.total_hands_played }}</dd>
                             </dl>
@@ -87,31 +93,18 @@
                             <h5 class="mb-3"><i class="fas fa-fire me-2"></i> Streaks & Achievements</h5>
                             <dl class="row">
                                 <dt class="col-sm-6">Current Win Streak:</dt>
-                                <dd class="col-sm-6">
-                                    <span class="badge bg-success">{{ stats.current_win_streak }}</span>
-                                </dd>
-                                
+                                <dd class="col-sm-6"><span class="badge bg-success">{{ stats.current_win_streak }}</span></dd>
                                 <dt class="col-sm-6">Longest Win Streak:</dt>
-                                <dd class="col-sm-6">
-                                    <span class="badge bg-warning text-dark">{{ stats.longest_win_streak }}</span>
-                                </dd>
-                                
+                                <dd class="col-sm-6"><span class="badge bg-warning text-dark">{{ stats.longest_win_streak }}</span></dd>
                                 <dt class="col-sm-6">Current Lose Streak:</dt>
-                                <dd class="col-sm-6">
-                                    <span class="badge bg-danger">{{ stats.current_lose_streak }}</span>
-                                </dd>
-                                
+                                <dd class="col-sm-6"><span class="badge bg-danger">{{ stats.current_lose_streak }}</span></dd>
                                 <dt class="col-sm-6">Longest Lose Streak:</dt>
-                                <dd class="col-sm-6">
-                                    <span class="badge bg-secondary">{{ stats.longest_lose_streak }}</span>
-                                </dd>
-                                
+                                <dd class="col-sm-6"><span class="badge bg-secondary">{{ stats.longest_lose_streak }}</span></dd>
                                 <dt class="col-sm-6">Perfect Games:</dt>
                                 <dd class="col-sm-6">
                                     <span class="badge badge-primary">{{ stats.perfect_games }}</span>
                                     <small class="text-muted">(shutouts)</small>
                                 </dd>
-                                
                                 <dt class="col-sm-6">Comeback Wins:</dt>
                                 <dd class="col-sm-6">
                                     <span class="badge badge-success">{{ stats.comeback_wins }}</span>
@@ -120,7 +113,7 @@
                             </dl>
                         </div>
                     </div>
-                    
+
                     {% if stats.last_updated %}
                     <div class="mt-3">
                         <small class="text-muted">
@@ -131,18 +124,14 @@
                     {% endif %}
                 </div>
             </div>
-        </div>
-    </div>
-    
-    <!-- Leaderboard -->
-    <div class="row">
-        <div class="col-12">
+
+            <!-- 4-player leaderboard -->
             <div class="card shadow">
                 <div class="card-header">
-                    <i class="fas fa-crown me-2"></i> Leaderboard - Top Players
+                    <i class="fas fa-crown me-2"></i> 4-Player Leaderboard
                 </div>
                 <div class="card-body">
-                    {% if leaderboard %}
+                    {% if leaderboard_4p %}
                     <div class="table-responsive">
                         <table class="table table-striped table-hover">
                             <thead>
@@ -157,37 +146,28 @@
                                 </tr>
                             </thead>
                             <tbody>
-                                {% for player_stats, player_user in leaderboard %}
-                                <tr {% if player_user.username == user.username %}class="table-warning"{% endif %}>
+                                {% for ps, pu in leaderboard_4p %}
+                                <tr {% if pu.username == user.username %}class="table-warning"{% endif %}>
                                     <td>
-                                        {% if loop.index <= 3 %}
-                                            {% if loop.index == 1 %}
-                                                <i class="fas fa-crown text-warning"></i>
-                                            {% elif loop.index == 2 %}
-                                                <i class="fas fa-medal text-secondary"></i>
-                                            {% elif loop.index == 3 %}
-                                                <i class="fas fa-award text-warning"></i>
-                                            {% endif %}
+                                        {% if loop.index == 1 %}<i class="fas fa-crown text-warning"></i>
+                                        {% elif loop.index == 2 %}<i class="fas fa-medal text-secondary"></i>
+                                        {% elif loop.index == 3 %}<i class="fas fa-award text-warning"></i>
                                         {% endif %}
                                         {{ loop.index }}
                                     </td>
                                     <td>
-                                        <i class="fas fa-user me-2"></i>{{ player_user.username }}
-                                        {% if player_user.username == user.username %}
-                                            <span class="badge bg-info ms-2">You</span>
-                                        {% endif %}
+                                        <i class="fas fa-user me-2"></i>{{ pu.username }}
+                                        {% if pu.username == user.username %}<span class="badge bg-info ms-2">You</span>{% endif %}
                                     </td>
-                                    <td class="text-success fw-bold">{{ player_stats.games_won }}</td>
-                                    <td>{{ player_stats.games_played }}</td>
-                                    <td>
-                                        <span class="badge bg-primary">{{ player_stats.win_rate }}%</span>
-                                    </td>
-                                    <td {% if player_stats.point_differential >= 0 %}class="text-success"{% else %}class="text-danger"{% endif %}>
-                                        {{ player_stats.point_differential }}
+                                    <td class="text-success fw-bold">{{ ps.games_won }}</td>
+                                    <td>{{ ps.games_played }}</td>
+                                    <td><span class="badge bg-primary">{{ ps.win_rate }}%</span></td>
+                                    <td {% if ps.point_differential >= 0 %}class="text-success"{% else %}class="text-danger"{% endif %}>
+                                        {{ ps.point_differential }}
                                     </td>
                                     <td>
-                                        {% if player_stats.perfect_games > 0 %}
-                                            <span class="badge badge-primary">{{ player_stats.perfect_games }}</span>
+                                        {% if ps.perfect_games > 0 %}
+                                            <span class="badge badge-primary">{{ ps.perfect_games }}</span>
                                         {% else %}
                                             <span class="text-muted">0</span>
                                         {% endif %}
@@ -200,14 +180,171 @@
                     {% else %}
                     <div class="alert alert-info">
                         <i class="fas fa-info-circle me-2"></i>
-                        No statistics available yet. Play some games to see the leaderboard!
+                        No 4-player statistics yet. Play some games!
                     </div>
                     {% endif %}
                 </div>
             </div>
-        </div>
-    </div>
-    
+        </div><!-- /tab-4p -->
+
+        <!-- ── 3-Player tab ────────────────────────────────────────────── -->
+        <div class="tab-pane fade" id="tab-3p" role="tabpanel">
+
+            <!-- Personal stats -->
+            <div class="card shadow mb-4">
+                <div class="card-header">
+                    <i class="fas fa-user me-2"></i> {{ user.username }}'s 3-Player Statistics
+                    <span class="badge bg-primary ms-2">Rank #{{ user_rank_3p }}</span>
+                </div>
+                <div class="card-body">
+                    <div class="row">
+                        <div class="col-md-3">
+                            <div class="stats-card text-center">
+                                <div class="stats-icon mx-auto"><i class="fas fa-gamepad"></i></div>
+                                <div class="stats-value">{{ stats.games_played_3p }}</div>
+                                <div class="stats-label">Games Played</div>
+                            </div>
+                        </div>
+                        <div class="col-md-3">
+                            <div class="stats-card text-center">
+                                <div class="stats-icon mx-auto"><i class="fas fa-trophy"></i></div>
+                                <div class="stats-value text-success">{{ stats.games_won_3p }}</div>
+                                <div class="stats-label">Games Won</div>
+                            </div>
+                        </div>
+                        <div class="col-md-3">
+                            <div class="stats-card text-center">
+                                <div class="stats-icon mx-auto"><i class="fas fa-times-circle"></i></div>
+                                <div class="stats-value text-danger">{{ stats.games_lost_3p }}</div>
+                                <div class="stats-label">Games Lost</div>
+                            </div>
+                        </div>
+                        <div class="col-md-3">
+                            <div class="stats-card text-center">
+                                <div class="stats-icon mx-auto"><i class="fas fa-percentage"></i></div>
+                                <div class="stats-value text-primary">{{ stats.win_rate_3p }}%</div>
+                                <div class="stats-label">Win Rate</div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <hr class="my-4">
+
+                    <div class="row">
+                        <div class="col-md-6">
+                            <h5 class="mb-3"><i class="fas fa-chart-line me-2"></i> Performance</h5>
+                            <dl class="row">
+                                <dt class="col-sm-6">Total Points Scored:</dt>
+                                <dd class="col-sm-6 text-success">{{ stats.total_points_scored_3p }}</dd>
+                                <dt class="col-sm-6">Total Points Conceded:</dt>
+                                <dd class="col-sm-6 text-danger">{{ stats.total_points_conceded_3p }}</dd>
+                                <dt class="col-sm-6">Point Differential:</dt>
+                                <dd class="col-sm-6 {% if stats.point_differential_3p >= 0 %}text-success{% else %}text-danger{% endif %}">
+                                    {{ stats.point_differential_3p }}
+                                </dd>
+                                <dt class="col-sm-6">Avg Points/Game:</dt>
+                                <dd class="col-sm-6">{{ stats.average_points_per_game_3p }}</dd>
+                                <dt class="col-sm-6">Avg Conceded/Game:</dt>
+                                <dd class="col-sm-6">{{ stats.average_points_conceded_per_game_3p }}</dd>
+                                <dt class="col-sm-6">Total Hands Played:</dt>
+                                <dd class="col-sm-6">{{ stats.total_hands_played_3p }}</dd>
+                            </dl>
+                        </div>
+                        <div class="col-md-6">
+                            <h5 class="mb-3"><i class="fas fa-fire me-2"></i> Streaks & Achievements</h5>
+                            <dl class="row">
+                                <dt class="col-sm-6">Current Win Streak:</dt>
+                                <dd class="col-sm-6"><span class="badge bg-success">{{ stats.current_win_streak_3p }}</span></dd>
+                                <dt class="col-sm-6">Longest Win Streak:</dt>
+                                <dd class="col-sm-6"><span class="badge bg-warning text-dark">{{ stats.longest_win_streak_3p }}</span></dd>
+                                <dt class="col-sm-6">Current Lose Streak:</dt>
+                                <dd class="col-sm-6"><span class="badge bg-danger">{{ stats.current_lose_streak_3p }}</span></dd>
+                                <dt class="col-sm-6">Longest Lose Streak:</dt>
+                                <dd class="col-sm-6"><span class="badge bg-secondary">{{ stats.longest_lose_streak_3p }}</span></dd>
+                                <dt class="col-sm-6">Perfect Games:</dt>
+                                <dd class="col-sm-6">
+                                    <span class="badge badge-primary">{{ stats.perfect_games_3p }}</span>
+                                    <small class="text-muted">(shutouts)</small>
+                                </dd>
+                            </dl>
+                        </div>
+                    </div>
+
+                    {% if stats.last_updated %}
+                    <div class="mt-3">
+                        <small class="text-muted">
+                            <i class="fas fa-clock me-1"></i>
+                            Last updated: {{ stats.last_updated.strftime('%Y-%m-%d %H:%M:%S') }}
+                        </small>
+                    </div>
+                    {% endif %}
+                </div>
+            </div>
+
+            <!-- 3-player leaderboard -->
+            <div class="card shadow">
+                <div class="card-header">
+                    <i class="fas fa-crown me-2"></i> 3-Player Leaderboard
+                </div>
+                <div class="card-body">
+                    {% if leaderboard_3p %}
+                    <div class="table-responsive">
+                        <table class="table table-striped table-hover">
+                            <thead>
+                                <tr>
+                                    <th>Rank</th>
+                                    <th>Player</th>
+                                    <th>Games Won</th>
+                                    <th>Games Played</th>
+                                    <th>Win Rate</th>
+                                    <th>Point Diff</th>
+                                    <th>Perfect Games</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {% for ps, pu in leaderboard_3p %}
+                                <tr {% if pu.username == user.username %}class="table-warning"{% endif %}>
+                                    <td>
+                                        {% if loop.index == 1 %}<i class="fas fa-crown text-warning"></i>
+                                        {% elif loop.index == 2 %}<i class="fas fa-medal text-secondary"></i>
+                                        {% elif loop.index == 3 %}<i class="fas fa-award text-warning"></i>
+                                        {% endif %}
+                                        {{ loop.index }}
+                                    </td>
+                                    <td>
+                                        <i class="fas fa-user me-2"></i>{{ pu.username }}
+                                        {% if pu.username == user.username %}<span class="badge bg-info ms-2">You</span>{% endif %}
+                                    </td>
+                                    <td class="text-success fw-bold">{{ ps.games_won_3p }}</td>
+                                    <td>{{ ps.games_played_3p }}</td>
+                                    <td><span class="badge bg-primary">{{ ps.win_rate_3p }}%</span></td>
+                                    <td {% if ps.point_differential_3p >= 0 %}class="text-success"{% else %}class="text-danger"{% endif %}>
+                                        {{ ps.point_differential_3p }}
+                                    </td>
+                                    <td>
+                                        {% if ps.perfect_games_3p > 0 %}
+                                            <span class="badge badge-primary">{{ ps.perfect_games_3p }}</span>
+                                        {% else %}
+                                            <span class="text-muted">0</span>
+                                        {% endif %}
+                                    </td>
+                                </tr>
+                                {% endfor %}
+                            </tbody>
+                        </table>
+                    </div>
+                    {% else %}
+                    <div class="alert alert-info">
+                        <i class="fas fa-info-circle me-2"></i>
+                        No 3-player statistics yet. Play some games!
+                    </div>
+                    {% endif %}
+                </div>
+            </div>
+        </div><!-- /tab-3p -->
+
+    </div><!-- /tab-content -->
+
     <!-- Navigation Buttons -->
     <div class="row mt-4">
         <div class="col-12 text-center">

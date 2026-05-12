@@ -1,0 +1,28 @@
+# Fly.io deployment config — run all `fly` commands from this directory (flask_auth_app/)
+# Docs: https://fly.io/docs/reference/configuration/
+
+app = "septica-game"       # change to your unique app name (must be globally unique on Fly.io)
+primary_region = "fra"     # Frankfurt — closest major Fly.io region to Romania
+
+[build]
+
+[env]
+  FLASK_APP   = "app.py"
+  FLASK_ENV   = "production"
+  DATABASE_URL = "sqlite:////app/data/septica.db"
+
+[http_service]
+  internal_port        = 5000
+  force_https          = true
+  auto_stop_machines   = false   # keep machine alive — games must not be interrupted mid-session
+  auto_start_machines  = true
+  min_machines_running = 1
+
+[[mounts]]
+  source      = "septica_data"   # Fly volume name (created in step 5 below)
+  destination = "/app/data"
+
+[[vm]]
+  memory   = "256mb"
+  cpu_kind = "shared"
+  cpus     = 1

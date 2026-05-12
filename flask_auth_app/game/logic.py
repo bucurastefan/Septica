@@ -57,6 +57,7 @@ class SepticaGame:
         self.game_phase = "playing"
         self.starter_can_take = False
         self.starter_can_continue = False
+        self.last_hand_cards = []   # preserved after resolve_hand() for end-of-game display
 
         self.initialize_game()
 
@@ -225,6 +226,8 @@ class SepticaGame:
         self.starter_player = self.hand_owner
         self.current_player = self.starter_player
 
+        # Keep a copy of the last resolved hand for the end-of-game display
+        self.last_hand_cards = list(self.current_hand_cards)
         self.current_hand_cards = []
         self.current_round_cards = []
         self.cut_card = None
@@ -245,6 +248,10 @@ class SepticaGame:
 
     def is_game_finished(self):
         if self.deck:
+            return False
+        # The current hand must be fully resolved before the game is over —
+        # the cards on the table still contain unawarded points.
+        if self.current_hand_cards:
             return False
         return all(len(self.players[i]) == 0 for i in range(self.num_players))
 
@@ -286,9 +293,13 @@ class SepticaGame:
             elif self.game_phase == "playing":
                 available_actions.append("play")
 
+        # When the game is finished show the last resolved hand so the table
+        # is not empty when the result banner appears.
+        displayed_hand = self.last_hand_cards if self.game_phase == 'finished' else self.current_hand_cards
+
         return {
             'hand': [c.to_dict() for c in self.players[player_id]],
-            'current_hand_cards': [(p, c.to_dict()) for p, c in self.current_hand_cards],
+            'current_hand_cards': [(p, c.to_dict()) for p, c in displayed_hand],
             'current_round_cards': [(p, c.to_dict()) for p, c in self.current_round_cards],
             'current_player': self.current_player,
             'starter_player': self.starter_player,

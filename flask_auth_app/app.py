@@ -46,10 +46,35 @@ def create_app(config_name=None):
     from game import socket_handlers  # noqa: F401 — imported for handler registration side-effects
 
     with app.app_context():
+        _run_migrations(app)
         db.create_all()
         _ensure_admin_user()
 
     return app
+
+
+def _run_migrations(app):
+    """Add new columns to an existing database without breaking old installs."""
+    import sqlite3
+    db_uri = app.config.get('SQLALCHEMY_DATABASE_URI', '')
+    if not db_uri.startswith('sqlite:///'):
+        return
+    db_path = db_uri.replace('sqlite:///', '')
+    if not os.path.exists(db_path):
+        return
+    conn = sqlite3.connect(db_path)
+    cur = conn.cursor()
+    cur.execute("PRAGMA table_info(user)")
+    existing = {row[1] for row in cur.fetchall()}
+    new_cols = {
+        'is_bot':         'BOOLEAN DEFAULT 0',
+        'bot_difficulty': 'TEXT',
+    }
+    for col, definition in new_cols.items():
+        if col not in existing:
+            cur.execute(f"ALTER TABLE user ADD COLUMN {col} {definition}")
+    conn.commit()
+    conn.close()
 
 
 def _ensure_admin_user():

@@ -306,8 +306,89 @@ socket.on('game_error', function(data) {
 });
 
 socket.on('game_completed', function(data) {
-    window.location.href = '/lobby/' + lobbyCode;
+    // Wait 3 s so the last card is visible before the overlay appears
+    setTimeout(() => showGameResult(data), 3000);
 });
+
+function showGameResult(data) {
+    const SHOW_DURATION = 5000; // ms overlay stays before redirect
+
+    const myTeam  = NUM_PLAYERS === 3 ? myPosition : myPosition % 2;
+    const won     = !data.is_tie && data.winner_team === myTeam;
+    const tied    = data.is_tie;
+    const icon    = tied ? '🤝' : (won ? '🏆' : '💔');
+    const title   = tied ? 'Tie Game' : (won ? 'You Win!' : 'You Lose');
+    const color   = tied ? '#ffc107' : (won ? '#28a745' : '#dc3545');
+
+    // Build a compact score line
+    let scoreLine = '';
+    if (NUM_PLAYERS === 3) {
+        scoreLine = (data.player_names || [])
+            .map((n, i) => `${n}: ${data.scores[i] ?? 0}`)
+            .join(' &nbsp;|&nbsp; ');
+    } else {
+        const p = data.player_names || [];
+        const t0 = [p[0], p[2]].filter(Boolean).join(' & ');
+        const t1 = [p[1], p[3]].filter(Boolean).join(' & ');
+        scoreLine = `<span style="color:#a78bfa">${t0}</span> ${data.scores[0] ?? 0}
+                     &nbsp;–&nbsp;
+                     ${data.scores[1] ?? 0} <span style="color:#9ca3af">${t1}</span>`;
+    }
+
+    const banner = document.createElement('div');
+    banner.id = 'game-result-banner';
+    banner.className = 'card shadow-lg';
+    banner.style.cssText = `
+        position:fixed; top:-160px; left:16px; right:16px; z-index:9999;
+        border-bottom:3px solid ${color}; border-radius:0 0 12px 12px;
+        transition:top .45s cubic-bezier(.25,.46,.45,.94);
+    `;
+    banner.innerHTML = `
+        <div class="card-body py-3 px-4">
+            <div class="d-flex align-items-center justify-content-between flex-wrap gap-3">
+                <div class="d-flex align-items-center gap-3">
+                    <span style="font-size:2.2rem;line-height:1">${icon}</span>
+                    <div>
+                        <h5 class="mb-0 fw-bold" style="color:${color}">${title}</h5>
+                        <small class="text-muted">${scoreLine}</small>
+                    </div>
+                </div>
+                <div class="text-end">
+                    <small class="text-muted d-block mb-1">
+                        Returning in <span id="result-secs">${Math.round(SHOW_DURATION/1000)}</span>s
+                    </small>
+                    <a href="/lobby/${lobbyCode}" class="btn btn-sm btn-outline-secondary">
+                        Go to Lobby
+                    </a>
+                </div>
+            </div>
+            <div class="progress mt-3" style="height:3px;">
+                <div id="result-bar" class="progress-bar"
+                     style="width:100%;background:${color};transition:width ${SHOW_DURATION}ms linear">
+                </div>
+            </div>
+        </div>`;
+    document.body.appendChild(banner);
+
+    // Slide the banner down after the element is in the DOM
+    requestAnimationFrame(() => {
+        banner.style.top = '70px';  // clears the fixed navbar
+        // Start shrinking the progress bar
+        requestAnimationFrame(() => {
+            document.getElementById('result-bar').style.width = '0%';
+        });
+    });
+
+    let secs = Math.round(SHOW_DURATION / 1000);
+    const tick = setInterval(() => {
+        secs--;
+        const el = document.getElementById('result-secs');
+        if (el) el.textContent = Math.max(secs, 0);
+        if (secs <= 0) clearInterval(tick);
+    }, 1000);
+
+    setTimeout(() => { window.location.href = '/lobby/' + lobbyCode; }, SHOW_DURATION);
+}
 
 // ---------------------------------------------------------------------------
 // Display update — main entry point

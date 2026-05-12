@@ -76,7 +76,10 @@ def create():
             return redirect(url_for('lobbies.detail', lobby_code=current_lobby.code))
 
         is_public = request.form.get('is_public') is not None
-        player_count_type = int(request.form.get('player_count_type', 4))
+        try:
+            player_count_type = int(request.form.get('player_count_type', 4))
+        except (TypeError, ValueError):
+            player_count_type = 4
         if player_count_type not in [3, 4]:
             player_count_type = 4
 
@@ -347,7 +350,10 @@ def update_settings(lobby_code):
             flash('Cannot update settings after game has started!', 'error')
             return redirect(url_for('lobbies.detail', lobby_code=lobby_code))
 
-        new_player_count_type = int(request.form.get('player_count_type', 4))
+        try:
+            new_player_count_type = int(request.form.get('player_count_type', 4))
+        except (TypeError, ValueError):
+            new_player_count_type = -1
         if new_player_count_type not in [3, 4]:
             flash('Invalid game type!', 'error')
             return redirect(url_for('lobbies.detail', lobby_code=lobby_code))
@@ -487,7 +493,10 @@ def change_team(lobby_code):
             flash('Team seats are assigned automatically in 3-player games.', 'info')
             return redirect(url_for('lobbies.detail', lobby_code=lobby_code))
 
-        new_team = int(request.form.get('team', 0))
+        try:
+            new_team = int(request.form.get('team', 0))
+        except (TypeError, ValueError):
+            new_team = -1
         if new_team not in [0, 1, 2]:
             flash('Invalid team selection!', 'error')
             return redirect(url_for('lobbies.detail', lobby_code=lobby_code))

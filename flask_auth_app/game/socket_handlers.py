@@ -467,7 +467,7 @@ def _update_player_statistics(lobby, lobby_players, winner, is_tie, scores,
 
 
 def _update_stats_3player(lobby_players, winner, is_tie, scores, hands_won, is_perfect_game):
-    """Each player is strictly individual — no team grouping."""
+    """Each player is strictly individual — no team grouping. Uses _3p columns."""
     total_hands = sum(hands_won.values())
 
     if is_tie:
@@ -475,9 +475,9 @@ def _update_stats_3player(lobby_players, winner, is_tie, scores, hands_won, is_p
             s = _get_or_create_stats(lp.user_id)
             if s is None:
                 continue
-            s.games_played += 1
-            s.total_hands_played += total_hands
-            s.current_lose_streak = 0
+            s.games_played_3p += 1
+            s.total_hands_played_3p += total_hands
+            s.current_lose_streak_3p = 0
             s.last_updated = datetime.utcnow()
         return
 
@@ -488,26 +488,26 @@ def _update_stats_3player(lobby_players, winner, is_tie, scores, hands_won, is_p
         s = _get_or_create_stats(lp.user_id)
         if s is None:
             continue
-        s.games_played += 1
-        s.total_hands_played += total_hands
+        s.games_played_3p += 1
+        s.total_hands_played_3p += total_hands
         s.last_updated = datetime.utcnow()
 
         if i == winner:
-            s.games_won += 1
-            s.total_points_scored += winner_score
-            s.total_points_conceded += loser_score_total
-            s.current_win_streak += 1
-            s.current_lose_streak = 0
-            s.longest_win_streak = max(s.longest_win_streak, s.current_win_streak)
+            s.games_won_3p += 1
+            s.total_points_scored_3p += winner_score
+            s.total_points_conceded_3p += loser_score_total
+            s.current_win_streak_3p += 1
+            s.current_lose_streak_3p = 0
+            s.longest_win_streak_3p = max(s.longest_win_streak_3p, s.current_win_streak_3p)
             if is_perfect_game:
-                s.perfect_games += 1
+                s.perfect_games_3p += 1
         else:
-            s.games_lost += 1
-            s.total_points_scored += scores[i]
-            s.total_points_conceded += winner_score
-            s.current_lose_streak += 1
-            s.current_win_streak = 0
-            s.longest_lose_streak = max(s.longest_lose_streak, s.current_lose_streak)
+            s.games_lost_3p += 1
+            s.total_points_scored_3p += scores[i]
+            s.total_points_conceded_3p += winner_score
+            s.current_lose_streak_3p += 1
+            s.current_win_streak_3p = 0
+            s.longest_lose_streak_3p = max(s.longest_lose_streak_3p, s.current_lose_streak_3p)
 
 
 def _update_stats_4player(lobby_players, winner, is_tie, scores, hands_won, is_perfect_game):

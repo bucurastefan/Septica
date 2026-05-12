@@ -47,18 +47,40 @@ def statistics():
             db.session.add(stats)
             db.session.commit()
 
-        leaderboard = (
+        leaderboard_4p = (
             db.session.query(PlayerStats, User)
             .join(User)
             .filter(PlayerStats.games_played > 0)
+            .filter(User.is_bot.is_(False))
             .order_by(PlayerStats.games_won.desc())
             .limit(10)
             .all()
         )
 
-        user_rank = (
+        leaderboard_3p = (
+            db.session.query(PlayerStats, User)
+            .join(User)
+            .filter(PlayerStats.games_played_3p > 0)
+            .filter(User.is_bot.is_(False))
+            .order_by(PlayerStats.games_won_3p.desc())
+            .limit(10)
+            .all()
+        )
+
+        user_rank_4p = (
             db.session.query(PlayerStats)
+            .join(User)
             .filter(PlayerStats.games_won > stats.games_won, PlayerStats.games_played > 0)
+            .filter(User.is_bot.is_(False))
+            .count()
+            + 1
+        )
+
+        user_rank_3p = (
+            db.session.query(PlayerStats)
+            .join(User)
+            .filter(PlayerStats.games_won_3p > stats.games_won_3p, PlayerStats.games_played_3p > 0)
+            .filter(User.is_bot.is_(False))
             .count()
             + 1
         )
@@ -67,8 +89,10 @@ def statistics():
             'statistics.html',
             user=user,
             stats=stats,
-            leaderboard=leaderboard,
-            user_rank=user_rank,
+            leaderboard_4p=leaderboard_4p,
+            leaderboard_3p=leaderboard_3p,
+            user_rank_4p=user_rank_4p,
+            user_rank_3p=user_rank_3p,
         )
     except Exception as e:
         logger.error(f"Error accessing statistics page: {e}")

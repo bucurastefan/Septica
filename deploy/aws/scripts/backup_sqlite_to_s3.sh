@@ -27,6 +27,12 @@ fi
 
 mkdir -p "$BACKUP_DIR"
 
+# Basic path safety for sqlite3 dot-command quoting.
+if [[ "$BACKUP_PATH" == *"'"* || "$BACKUP_PATH" == *$'\n'* ]]; then
+  echo "Unsafe BACKUP_PATH: quotes/newlines are not allowed."
+  exit 1
+fi
+
 # Prefer SQLite online backup for consistency when DB is in use.
 if command -v sqlite3 >/dev/null 2>&1; then
   sqlite3 "$DB_VOLUME_PATH" ".backup '$BACKUP_PATH'"

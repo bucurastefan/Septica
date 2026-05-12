@@ -15,6 +15,8 @@ COPY . .
 # Persistent data directory (mount a volume here to survive container restarts)
 RUN mkdir -p /app/data && chown appuser:appuser /app/data
 
+ENV FLASK_APP=app.py
+
 USER appuser
 
 EXPOSE 5000

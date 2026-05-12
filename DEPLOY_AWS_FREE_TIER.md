@@ -70,7 +70,7 @@ Optional cron (daily at 03:30):
 ```bash
 crontab -e
 # Add:
-30 3 * * * cd /home/ubuntu/Septica && /bin/bash ./deploy/aws/scripts/backup_sqlite_to_s3.sh septica-db-backups eu-north-1 >> /home/ubuntu/septica-backup.log 2>&1
+30 3 * * * cd $HOME/Septica && /bin/bash ./deploy/aws/scripts/backup_sqlite_to_s3.sh septica-db-backups eu-north-1 >> /home/ubuntu/septica-backup.log 2>&1
 ```
 
 ## 7) Cost controls (important)

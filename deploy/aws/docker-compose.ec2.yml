@@ -2,7 +2,6 @@
 services:
   web:
     build:
-      # Relative to this file (deploy/aws/): ../../flask_auth_app
       context: ../../flask_auth_app
     env_file:
       - ../../.env.ec2

@@ -35,12 +35,15 @@ else
   cp "$DB_VOLUME_PATH" "$BACKUP_PATH"
 fi
 
-aws s3 cp "$BACKUP_PATH" "s3://${BUCKET_NAME}/${BACKUP_FILE}" --region "$AWS_REGION"
+if aws s3 cp "$BACKUP_PATH" "s3://${BUCKET_NAME}/${BACKUP_FILE}" --region "$AWS_REGION"; then
+  # Keep local backup cache under control.
+  find "$BACKUP_DIR" -type f -name 'septica-*.db' -mtime +"${RETENTION_DAYS}" -delete
 
-# Keep local backup cache under control.
-find "$BACKUP_DIR" -type f -name 'septica-*.db' -mtime +"${RETENTION_DAYS}" -delete
-
-# Remove fresh local backup after successful upload.
-rm -f "$BACKUP_PATH"
+  # Remove fresh local backup after successful upload.
+  rm -f "$BACKUP_PATH"
+else
+  echo "S3 upload failed; keeping local backup at: $BACKUP_PATH"
+  exit 1
+fi
 
 echo "Backup uploaded: s3://${BUCKET_NAME}/${BACKUP_FILE}"

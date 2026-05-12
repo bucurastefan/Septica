@@ -28,7 +28,7 @@ newgrp docker
 ```bash
 git clone https://github.com/bucurastefan/Septica.git
 cd Septica
-cp deploy/aws/.env.ec2.example .env.ec2
+cp deploy/aws/env.ec2.sample .env.ec2
 ```
 
 Edit `.env.ec2`:

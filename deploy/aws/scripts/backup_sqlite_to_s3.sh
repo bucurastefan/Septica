@@ -38,7 +38,7 @@ fi
 aws s3 cp "$BACKUP_PATH" "s3://${BUCKET_NAME}/${BACKUP_FILE}" --region "$AWS_REGION"
 
 # Keep local backup cache under control.
-find "$BACKUP_DIR" -type f -name 'septica-*.db' -mtime "+${RETENTION_DAYS}" -delete
+find "$BACKUP_DIR" -type f -name 'septica-*.db' -mtime +${RETENTION_DAYS} -delete
 
 # Remove fresh local backup after successful upload.
 rm -f "$BACKUP_PATH"

@@ -4,7 +4,7 @@ from flask import render_template, redirect, url_for, request, flash, session
 from werkzeug.security import generate_password_hash
 
 from extensions import db, socketio
-from models import User, Lobby
+from models import User, Lobby, LobbyPlayer, PlayerStats, GameResultParticipant
 from . import bp
 
 logger = logging.getLogger(__name__)
@@ -106,12 +106,34 @@ def delete_user(user_id):
         if user.is_admin:
             flash('Cannot delete admin user!', 'error')
             return redirect(url_for('admin.users'))
-        db.session.delete(user)
+
+        # Delete every FK-dependent row explicitly in safe order.
+        # We use bulk .delete() queries (plain SQL) to avoid ORM cascade conflicts.
+
+        # 1. game_result_participant → references user.id
+        GameResultParticipant.query.filter_by(user_id=user_id).delete(synchronize_session=False)
+
+        # 2. player_stats → references user.id
+        PlayerStats.query.filter_by(user_id=user_id).delete(synchronize_session=False)
+
+        # 3. lobby_player rows for this user (memberships in other people's lobbies)
+        LobbyPlayer.query.filter_by(user_id=user_id).delete(synchronize_session=False)
+
+        # 4. For owned lobbies: remove all their players first, then the lobbies
+        owned_ids = [row[0] for row in db.session.query(Lobby.id).filter_by(owner_id=user_id)]
+        if owned_ids:
+            LobbyPlayer.query.filter(LobbyPlayer.lobby_id.in_(owned_ids)).delete(synchronize_session=False)
+            Lobby.query.filter(Lobby.id.in_(owned_ids)).delete(synchronize_session=False)
+
+        # 5. Finally delete the user row itself
+        User.query.filter_by(id=user_id).delete(synchronize_session=False)
+
         db.session.commit()
         flash('User deleted successfully!', 'success')
         return redirect(url_for('admin.users'))
     except Exception as e:
-        logger.error(f"Error deleting user: {e}")
+        db.session.rollback()
+        logger.error(f"Error deleting user {user_id}: {e}", exc_info=True)
         flash('An error occurred while deleting user.', 'error')
         return redirect(url_for('admin.users'))
 

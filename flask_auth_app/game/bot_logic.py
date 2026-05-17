@@ -110,7 +110,7 @@ def _starter_decision(game_state, position, available, difficulty):
 
     # 2. If we don't own the hand but it has points and we can steal it → continue
     if 'continue' in available and not owns and hand_points > 0:
-        idx = _find_cut_card(game_state, prefer_weak=(difficulty == 'hard'))
+        idx = _find_cut_card(game_state, prefer_weak=(difficulty == 'medium'))
         if idx is not None:
             return ('play', idx)
 
@@ -165,7 +165,7 @@ def _choose_card(game_state, position, difficulty):
     # Rule B: steal a point-rich hand we don't own
     owns = _owns_hand(position, hand_owner, num_players)
     if not owns and hand_points > 0 and cut_idxs:
-        if difficulty == 'hard':
+        if difficulty == 'medium':
             # Prefer cheap cuts (same-value) over 7s to save 7s for later
             idx = _find_cut_card(game_state, prefer_weak=True)
             if idx is not None:

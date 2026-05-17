@@ -339,13 +339,13 @@
                         <form method="POST" action="{{ url_for('lobbies.add_bot', lobby_code=lobby.code) }}">
                             <input type="hidden" name="difficulty" value="medium">
                             <button type="submit" class="btn btn-outline-warning w-100">
-                                🤖 Add Medium Bot <small class="text-muted">(basic strategy)</small>
+                                🤖 Add Medium Bot <small class="text-muted">(heuristic + cut economy)</small>
                             </button>
                         </form>
                         <form method="POST" action="{{ url_for('lobbies.add_bot', lobby_code=lobby.code) }}">
                             <input type="hidden" name="difficulty" value="hard">
                             <button type="submit" class="btn btn-outline-danger w-100">
-                                🤖 Add Hard Bot <small class="text-muted">(advanced strategy)</small>
+                                🤖 Add Hard Bot <small class="text-muted">(optimised heuristic)</small>
                             </button>
                         </form>
                         <form method="POST" action="{{ url_for('lobbies.add_bot', lobby_code=lobby.code) }}">

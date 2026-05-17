@@ -6,23 +6,27 @@
 <div class="container animate-fade-in">
     <h1 class="page-title text-center mb-4">Player Statistics</h1>
 
-    <!-- Mode tabs -->
-    <ul class="nav nav-tabs mb-4" id="statsTabs" role="tablist">
-        <li class="nav-item" role="presentation">
-            <button class="nav-link active" id="tab-4p-btn" data-bs-toggle="tab"
-                    data-bs-target="#tab-4p" type="button" role="tab">
-                <i class="fas fa-users me-1"></i> 4-Player
-                <span class="badge bg-secondary ms-1">{{ stats.games_played }} games</span>
-            </button>
-        </li>
-        <li class="nav-item" role="presentation">
-            <button class="nav-link" id="tab-3p-btn" data-bs-toggle="tab"
-                    data-bs-target="#tab-3p" type="button" role="tab">
-                <i class="fas fa-user-friends me-1"></i> 3-Player
-                <span class="badge bg-secondary ms-1">{{ stats.games_played_3p }} games</span>
-            </button>
-        </li>
-    </ul>
+    <!-- Mode switcher -->
+    <div class="mode-switcher-wrap mb-4">
+        <ul class="nav mode-switcher" id="statsTabs" role="tablist">
+            <li class="nav-item" role="presentation">
+                <button class="nav-link mode-btn active" id="tab-4p-btn"
+                        data-bs-toggle="tab" data-bs-target="#tab-4p"
+                        type="button" role="tab">
+                    <i class="fas fa-users me-2"></i>4-Player
+                    <span class="badge bg-secondary ms-1" style="font-size:.7rem">{{ stats.games_played }}</span>
+                </button>
+            </li>
+            <li class="nav-item" role="presentation">
+                <button class="nav-link mode-btn" id="tab-3p-btn"
+                        data-bs-toggle="tab" data-bs-target="#tab-3p"
+                        type="button" role="tab">
+                    <i class="fas fa-user-friends me-2"></i>3-Player
+                    <span class="badge bg-secondary ms-1" style="font-size:.7rem">{{ stats.games_played_3p }}</span>
+                </button>
+            </li>
+        </ul>
+    </div>
 
     <div class="tab-content" id="statsTabContent">
 
@@ -147,7 +151,8 @@
                             </thead>
                             <tbody>
                                 {% for ps, pu in leaderboard_4p %}
-                                <tr {% if pu.username == user.username %}class="table-warning"{% endif %}>
+                                {% set is_me = pu.username == user.username %}
+                                <tr {% if is_me %}style="background:rgba(var(--primary-color-rgb),.18);border-left:3px solid var(--primary-color)"{% endif %}>
                                     <td>
                                         {% if loop.index == 1 %}<i class="fas fa-crown text-warning"></i>
                                         {% elif loop.index == 2 %}<i class="fas fa-medal text-secondary"></i>
@@ -156,8 +161,9 @@
                                         {{ loop.index }}
                                     </td>
                                     <td>
-                                        <i class="fas fa-user me-2"></i>{{ pu.username }}
-                                        {% if pu.username == user.username %}<span class="badge bg-info ms-2">You</span>{% endif %}
+                                        <i class="fas fa-user me-2"></i>
+                                        <strong {% if is_me %}style="color:var(--primary-color)"{% endif %}>{{ pu.username }}</strong>
+                                        {% if is_me %}<span class="badge bg-info ms-2">You</span>{% endif %}
                                     </td>
                                     <td class="text-success fw-bold">{{ ps.games_won }}</td>
                                     <td>{{ ps.games_played }}</td>
@@ -303,7 +309,8 @@
                             </thead>
                             <tbody>
                                 {% for ps, pu in leaderboard_3p %}
-                                <tr {% if pu.username == user.username %}class="table-warning"{% endif %}>
+                                {% set is_me = pu.username == user.username %}
+                                <tr {% if is_me %}style="background:rgba(var(--primary-color-rgb),.18);border-left:3px solid var(--primary-color)"{% endif %}>
                                     <td>
                                         {% if loop.index == 1 %}<i class="fas fa-crown text-warning"></i>
                                         {% elif loop.index == 2 %}<i class="fas fa-medal text-secondary"></i>
@@ -312,8 +319,9 @@
                                         {{ loop.index }}
                                     </td>
                                     <td>
-                                        <i class="fas fa-user me-2"></i>{{ pu.username }}
-                                        {% if pu.username == user.username %}<span class="badge bg-info ms-2">You</span>{% endif %}
+                                        <i class="fas fa-user me-2"></i>
+                                        <strong {% if is_me %}style="color:var(--primary-color)"{% endif %}>{{ pu.username }}</strong>
+                                        {% if is_me %}<span class="badge bg-info ms-2">You</span>{% endif %}
                                     </td>
                                     <td class="text-success fw-bold">{{ ps.games_won_3p }}</td>
                                     <td>{{ ps.games_played_3p }}</td>
@@ -357,4 +365,21 @@
         </div>
     </div>
 </div>
+{% endblock %}
+
+{% block extra_scripts %}
+<script src="https://cdnjs.cloudflare.com/ajax/libs/socket.io/4.0.1/socket.io.js"></script>
+<script>
+(function () {
+    const socket = io();
+    let reloadTimer = null;
+
+    // Reload the page when stats change (game finished or cleanup ran).
+    // Debounce by 1 s so rapid events only trigger one reload.
+    socket.on('stats_updated', function () {
+        if (reloadTimer) clearTimeout(reloadTimer);
+        reloadTimer = setTimeout(function () { location.reload(); }, 1000);
+    });
+})();
+</script>
 {% endblock %}

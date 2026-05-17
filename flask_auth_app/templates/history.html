@@ -1,0 +1,171 @@
+{% extends "base.html" %}
+
+{% block title %}Match History - Șeptică{% endblock %}
+
+{% block content %}
+<div class="container animate-fade-in">
+    <h1 class="page-title text-center mb-4">
+        <i class="fas fa-history me-2"></i>Match History
+    </h1>
+
+    {% if enriched %}
+
+    {# ── Summary row ──────────────────────────────────────────────────────── #}
+    {% set total = enriched | length %}
+    {% set wins  = enriched | selectattr('participant') | selectattr('participant.won') | list | length %}
+    {% set losses = enriched | rejectattr('result.is_tie') | selectattr('participant') | rejectattr('participant.won') | list | length %}
+    {% set ties  = enriched | selectattr('result.is_tie') | list | length %}
+
+    <div class="row g-3 mb-4">
+        <div class="col-6 col-md-3">
+            <div class="stats-card text-center">
+                <div class="stats-icon mx-auto"><i class="fas fa-gamepad"></i></div>
+                <div class="stats-value">{{ total }}</div>
+                <div class="stats-label">Games (last 30)</div>
+            </div>
+        </div>
+        <div class="col-6 col-md-3">
+            <div class="stats-card text-center">
+                <div class="stats-icon mx-auto" style="background: linear-gradient(90deg,#02c39a,#00b09b)">
+                    <i class="fas fa-trophy"></i>
+                </div>
+                <div class="stats-value text-success">{{ wins }}</div>
+                <div class="stats-label">Wins</div>
+            </div>
+        </div>
+        <div class="col-6 col-md-3">
+            <div class="stats-card text-center">
+                <div class="stats-icon mx-auto" style="background: linear-gradient(90deg,#e63946,#c1121f)">
+                    <i class="fas fa-times-circle"></i>
+                </div>
+                <div class="stats-value text-danger">{{ losses }}</div>
+                <div class="stats-label">Losses</div>
+            </div>
+        </div>
+        <div class="col-6 col-md-3">
+            <div class="stats-card text-center">
+                <div class="stats-icon mx-auto" style="background: linear-gradient(90deg,#f9c74f,#f3722c)">
+                    <i class="fas fa-handshake"></i>
+                </div>
+                <div class="stats-value" style="color:var(--warning-color)">{{ ties }}</div>
+                <div class="stats-label">Ties</div>
+            </div>
+        </div>
+    </div>
+
+    {# ── Game list ─────────────────────────────────────────────────────────── #}
+    <div class="card shadow">
+        <div class="card-header">
+            <i class="fas fa-list me-2"></i>Last {{ total }} games for
+            <strong>{{ user.username }}</strong>
+        </div>
+        <div class="card-body p-0">
+            <div class="table-responsive">
+                <table class="table table-hover mb-0">
+                    <thead>
+                        <tr>
+                            <th class="ps-3">Date</th>
+                            <th>Mode</th>
+                            <th>Result</th>
+                            <th>Score</th>
+                            <th class="pe-3">Players</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for item in enriched %}
+                        {% set gr   = item.result %}
+                        {% set part = item.participant %}
+                        {% set s    = gr.scores %}
+                        {% set n    = gr.player_names %}
+                        <tr>
+                            <td class="ps-3 align-middle text-nowrap">
+                                <span class="fw-semibold">{{ gr.played_at.strftime('%d %b %Y') }}</span><br>
+                                <small class="text-muted">{{ gr.played_at.strftime('%H:%M') }}</small>
+                            </td>
+
+                            <td class="align-middle">
+                                <span class="badge bg-secondary">{{ gr.num_players }}P</span>
+                            </td>
+
+                            <td class="align-middle">
+                                {% if gr.is_tie %}
+                                    <span class="badge" style="background:linear-gradient(90deg,#f9c74f,#f3722c);color:#1a1a1a">
+                                        <i class="fas fa-handshake me-1"></i>Tie
+                                    </span>
+                                {% elif part and part.won %}
+                                    <span class="badge" style="background:linear-gradient(90deg,#02c39a,#00b09b)">
+                                        <i class="fas fa-trophy me-1"></i>Win
+                                    </span>
+                                {% else %}
+                                    <span class="badge" style="background:linear-gradient(90deg,#e63946,#c1121f)">
+                                        <i class="fas fa-times me-1"></i>Loss
+                                    </span>
+                                {% endif %}
+                            </td>
+
+                            <td class="align-middle">
+                                {% if gr.num_players == 4 %}
+                                <small>
+                                    <span style="color:#a78bfa">{{ n[0] }}&nbsp;&amp;&nbsp;{{ n[2] }}</span>
+                                    &nbsp;<strong>{{ s[0] }}&nbsp;&ndash;&nbsp;{{ s[1] }}</strong>&nbsp;
+                                    <span class="text-muted">{{ n[1] }}&nbsp;&amp;&nbsp;{{ n[3] }}</span>
+                                </small>
+                                {% else %}
+                                <small>
+                                    {% for i in range(3) %}
+                                        {% if n[i] == user.username %}
+                                            <strong style="color:var(--primary-color)">{{ n[i] }}&nbsp;{{ s[i] }}</strong>
+                                        {% else %}
+                                            <span class="text-muted">{{ n[i] }}&nbsp;{{ s[i] }}</span>
+                                        {% endif %}
+                                        {% if not loop.last %}&nbsp;|&nbsp;{% endif %}
+                                    {% endfor %}
+                                </small>
+                                {% endif %}
+                            </td>
+
+                            <td class="pe-3 align-middle">
+                                <small>
+                                {% for name in gr.player_names %}
+                                    {% if name == user.username %}
+                                        <strong style="color:var(--primary-color)">{{ name }}</strong>
+                                    {% else %}
+                                        <span class="text-muted">{{ name }}</span>
+                                    {% endif %}
+                                    {% if not loop.last %},&nbsp;{% endif %}
+                                {% endfor %}
+                                </small>
+                            </td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+
+    {% else %}
+    <div class="card shadow">
+        <div class="card-body text-center py-5">
+            <div class="stats-icon mx-auto mb-3"><i class="fas fa-history"></i></div>
+            <h5 class="text-muted">No games recorded yet</h5>
+            <p class="text-muted mb-4">Play some games to see your history here!</p>
+            <a href="{{ url_for('lobbies.index') }}" class="btn btn-primary">
+                <i class="fas fa-gamepad me-1"></i> Find a Lobby
+            </a>
+        </div>
+    </div>
+    {% endif %}
+
+    <div class="row mt-4">
+        <div class="col-12 text-center">
+            <a href="{{ url_for('lobbies.index') }}" class="btn btn-primary me-2">
+                <i class="fas fa-arrow-left me-1"></i> Back to Lobbies
+            </a>
+            <a href="{{ url_for('main.statistics') }}" class="btn btn-outline-primary">
+                <i class="fas fa-chart-bar me-1"></i> Statistics
+            </a>
+        </div>
+    </div>
+</div>
+{% endblock %}

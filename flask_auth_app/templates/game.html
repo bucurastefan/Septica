@@ -183,6 +183,27 @@
                     </div>
                 </div>
             </div>
+
+            <!-- Chat -->
+            <div class="card shadow mt-3">
+                <div class="card-header bg-dark text-white py-2">
+                    <h6 class="mb-0"><i class="fas fa-comments me-2"></i>Chat</h6>
+                </div>
+                <div class="card-body p-2">
+                    <div id="chat-messages"
+                         style="height:160px;overflow-y:auto;font-size:0.8rem;"
+                         class="mb-2 border rounded p-1 bg-light">
+                    </div>
+                    <div class="input-group input-group-sm">
+                        <input type="text" id="chat-input" class="form-control"
+                               placeholder="Message…" maxlength="200"
+                               onkeydown="if(event.key==='Enter')sendChat()">
+                        <button class="btn btn-secondary" onclick="sendChat()">
+                            <i class="fas fa-paper-plane"></i>
+                        </button>
+                    </div>
+                </div>
+            </div>
         </div>
     </div>
 </div>
@@ -629,6 +650,31 @@ function playCard(cardIndex) {
 
 function takeHand()   { socket.emit('take_hand',    { lobby_code: lobbyCode }); }
 function forfeitHand(){ socket.emit('forfeit_hand', { lobby_code: lobbyCode }); }
+
+// ---------------------------------------------------------------------------
+// Chat
+// ---------------------------------------------------------------------------
+socket.on('chat_message', function(data) {
+    const box = document.getElementById('chat-messages');
+    if (!box) return;
+    const div = document.createElement('div');
+    div.innerHTML = `<strong>${data.username}:</strong> ${escapeHtml(data.text)}`;
+    box.appendChild(div);
+    box.scrollTop = box.scrollHeight;
+});
+
+function sendChat() {
+    const input = document.getElementById('chat-input');
+    if (!input) return;
+    const text = input.value.trim();
+    if (!text) return;
+    socket.emit('chat_message', { lobby_code: lobbyCode, text: text });
+    input.value = '';
+}
+
+function escapeHtml(str) {
+    return str.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+}
 
 // ---------------------------------------------------------------------------
 // Toast helper

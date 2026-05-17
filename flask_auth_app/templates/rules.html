@@ -12,21 +12,25 @@
                 </div>
                 <div class="card-body">
 
-                    <!-- Mode tabs -->
-                    <ul class="nav nav-tabs mb-4" id="rulesTabs" role="tablist">
-                        <li class="nav-item" role="presentation">
-                            <button class="nav-link active" id="rules-4p-btn" data-bs-toggle="tab"
-                                    data-bs-target="#rules-4p" type="button" role="tab">
-                                <i class="fas fa-users me-1"></i> 4-Player (Teams)
-                            </button>
-                        </li>
-                        <li class="nav-item" role="presentation">
-                            <button class="nav-link" id="rules-3p-btn" data-bs-toggle="tab"
-                                    data-bs-target="#rules-3p" type="button" role="tab">
-                                <i class="fas fa-user-friends me-1"></i> 3-Player (Free-for-All)
-                            </button>
-                        </li>
-                    </ul>
+                    <!-- Mode switcher -->
+                    <div class="mode-switcher-wrap mb-4">
+                        <ul class="nav mode-switcher" id="rulesTabs" role="tablist">
+                            <li class="nav-item" role="presentation">
+                                <button class="nav-link mode-btn active" id="rules-4p-btn"
+                                        data-bs-toggle="tab" data-bs-target="#rules-4p"
+                                        type="button" role="tab">
+                                    <i class="fas fa-users me-2"></i>4-Player (Teams)
+                                </button>
+                            </li>
+                            <li class="nav-item" role="presentation">
+                                <button class="nav-link mode-btn" id="rules-3p-btn"
+                                        data-bs-toggle="tab" data-bs-target="#rules-3p"
+                                        type="button" role="tab">
+                                    <i class="fas fa-user-friends me-2"></i>3-Player (Free-for-All)
+                                </button>
+                            </li>
+                        </ul>
+                    </div>
 
                     <div class="tab-content" id="rulesTabContent">
 

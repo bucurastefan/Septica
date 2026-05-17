@@ -4,8 +4,10 @@ from datetime import datetime
 from flask import session, current_app
 from flask_socketio import emit, join_room, leave_room
 
+import json
 from extensions import db, socketio
 from models import User, Lobby, LobbyPlayer, PlayerStats, get_ordered_players
+from models import GameResult, GameResultParticipant
 from .logic import SepticaGame
 
 logger = logging.getLogger(__name__)
@@ -43,6 +45,16 @@ def handle_leave_lobby_room(data):
     if lobby_code:
         leave_room(lobby_code)
         logger.info(f"User left room: {lobby_code}")
+
+
+@socketio.on('chat_message')
+def handle_chat_message(data):
+    lobby_code = data.get('lobby_code', '').strip()
+    text = data.get('text', '').strip()[:200]  # cap at 200 chars
+    if not lobby_code or not text:
+        return
+    username = session.get('username', 'Unknown')
+    socketio.emit('chat_message', {'username': username, 'text': text}, room=lobby_code)
 
 
 @socketio.on('join_admin_lobby_room')
@@ -234,6 +246,7 @@ def _handle_game_completion(lobby_code, lobby, lobby_players):
     _update_player_statistics(lobby, lobby_players, winner, is_tie, scores,
                                hands_won, is_perfect_game, num_players)
     db.session.commit()
+    socketio.emit('stats_updated', {}, broadcast=True)
 
     # Build the per-player notification stored for the lobbies page
     if num_players == 3:
@@ -257,6 +270,7 @@ def _handle_game_completion(lobby_code, lobby, lobby_players):
             'lobby_code': lobby_code,
         }
 
+    _save_game_result(lobby_code, lobby_players, winner, is_tie, scores, num_players)
     lobby.game_started = False
     db.session.commit()
     del games[lobby_code]
@@ -448,6 +462,38 @@ def _bot_move_task(app, lobby_code, position, difficulty):
 
         # Chain: schedule the next bot if needed
         _schedule_bot_turn_if_needed(lobby_code, lobby_players)
+
+
+def _save_game_result(lobby_code, lobby_players, winner, is_tie, scores, num_players):
+    try:
+        player_names = [lp.user.username for lp in lobby_players]
+        gr = GameResult(
+            lobby_code=lobby_code,
+            num_players=num_players,
+            winner=winner,
+            is_tie=is_tie,
+            scores_json=json.dumps({str(k): v for k, v in scores.items()}),
+            player_names_json=json.dumps(player_names),
+        )
+        db.session.add(gr)
+        db.session.flush()  # get gr.id before adding participants
+
+        for i, lp in enumerate(lobby_players):
+            if lp.user.is_bot:
+                continue
+            if num_players == 4:
+                won = (not is_tie) and (winner == i % 2)
+            else:
+                won = (not is_tie) and (winner == i)
+            db.session.add(GameResultParticipant(
+                game_id=gr.id,
+                user_id=lp.user_id,
+                position=i,
+                won=won,
+            ))
+    except Exception as e:
+        logger.error(f"Error saving game result: {e}")
+        db.session.rollback()
 
 
 def _update_player_statistics(lobby, lobby_players, winner, is_tie, scores,

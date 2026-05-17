@@ -69,6 +69,10 @@ def create_app(config_name=None):
     # Register SocketIO handlers
     from game import socket_handlers  # noqa: F401
 
+    # Background cleanup: stale guest users + abandoned/stuck lobbies
+    from cleanup import start_cleanup_worker
+    start_cleanup_worker(app)
+
     # Set up Flask-Migrate
     from flask_migrate import Migrate
     Migrate(app, db)

@@ -1,0 +1,141 @@
+{% extends "base.html" %}
+
+{% block title %}Bot AI Benchmark - Șeptică{% endblock %}
+
+{% block content %}
+<div class="container animate-fade-in">
+
+    <h1 class="page-title text-center mb-1">
+        <i class="fas fa-robot me-2"></i>Bot AI Benchmark
+    </h1>
+    <p class="text-center text-muted mb-5" style="max-width:640px;margin:0 auto">
+        Every bot difficulty played head-to-head in simulated 4-player games.
+        Non-smart matchups: 1 000 games each. Smart matchups: 100 games
+        (MCTS is computationally expensive).
+    </p>
+
+    {% if data %}
+
+    <!-- ── Overall Rankings ── -->
+    {% if rankings %}
+    <h4 class="text-center mb-3" style="color:var(--text-light);font-weight:600;letter-spacing:.05em;text-transform:uppercase;font-size:.85rem">
+        Overall Rankings
+    </h4>
+    <div class="row g-3 mb-5 justify-content-center">
+        {% for r in rankings %}
+        <div class="col-6 col-md-3">
+            <div class="stats-card text-center position-relative" style="border-top:3px solid {{ r.color }}">
+                <div class="position-absolute top-0 start-0 m-2">
+                    <span class="badge" style="background:{{ r.color }};font-size:.75rem">#{{ loop.index }}</span>
+                </div>
+                <div class="stats-icon mx-auto mt-3" style="background:linear-gradient(135deg,{{ r.color }}99,{{ r.color }})">
+                    {% if r.diff == 'easy' %}<i class="fas fa-dice"></i>
+                    {% elif r.diff == 'medium' %}<i class="fas fa-brain"></i>
+                    {% elif r.diff == 'hard' %}<i class="fas fa-chess-knight"></i>
+                    {% else %}<i class="fas fa-microchip"></i>
+                    {% endif %}
+                </div>
+                <div class="stats-value mt-2" style="color:{{ r.color }}">{{ r.pct }}%</div>
+                <div class="stats-label" style="font-weight:700;font-size:.95rem">{{ r.diff | capitalize }}</div>
+                <div class="stats-label">overall win rate</div>
+            </div>
+        </div>
+        {% endfor %}
+    </div>
+    {% endif %}
+
+    <!-- ── Head-to-head matchups ── -->
+    <h4 class="text-center mb-3" style="color:var(--text-light);font-weight:600;letter-spacing:.05em;text-transform:uppercase;font-size:.85rem">
+        Head-to-Head Results
+    </h4>
+    <div class="row g-3 mb-5">
+        {% for row in data %}
+        <div class="col-12 col-md-6">
+            <div class="card shadow h-100">
+                <div class="card-body pb-2">
+                    <div class="d-flex align-items-center justify-content-between mb-3">
+                        <div class="text-center" style="flex:1">
+                            <span class="badge fs-6 px-3 py-2"
+                                  style="background:{{ row.color1 }};color:#fff;border-radius:8px">
+                                {{ row.d1 | capitalize }}
+                            </span>
+                            <div class="mt-1" style="font-size:2rem;font-weight:800;color:{{ row.color1 }}">
+                                {{ row.pct1 }}%
+                            </div>
+                            <div style="font-size:.8rem;color:var(--text-light)">{{ row.w1 }} wins</div>
+                        </div>
+                        <div class="text-center px-2" style="flex:0 0 auto">
+                            <div style="font-size:.65rem;color:var(--text-light);text-transform:uppercase;letter-spacing:.1em">{{ row.n }} games</div>
+                            <div style="font-size:1.4rem;font-weight:700;color:var(--text-light)">VS</div>
+                            <div style="font-size:.65rem;color:var(--text-light)">{{ row.ties }} ties</div>
+                        </div>
+                        <div class="text-center" style="flex:1">
+                            <span class="badge fs-6 px-3 py-2"
+                                  style="background:{{ row.color2 }};color:#fff;border-radius:8px">
+                                {{ row.d2 | capitalize }}
+                            </span>
+                            <div class="mt-1" style="font-size:2rem;font-weight:800;color:{{ row.color2 }}">
+                                {{ row.pct2 }}%
+                            </div>
+                            <div style="font-size:.8rem;color:var(--text-light)">{{ row.w2 }} wins</div>
+                        </div>
+                    </div>
+                    <div class="d-flex rounded-pill overflow-hidden" style="height:8px">
+                        <div style="width:{{ row.pct1 }}%;background:{{ row.color1 }}"></div>
+                        {% set tie_pct = (row.ties / row.n * 100) | round(1) %}
+                        <div style="width:{{ tie_pct }}%;background:var(--text-light);opacity:.4"></div>
+                        <div style="flex:1;background:{{ row.color2 }}"></div>
+                    </div>
+                </div>
+            </div>
+        </div>
+        {% endfor %}
+    </div>
+
+    <!-- ── Bot descriptions ── -->
+    <h4 class="text-center mb-3" style="color:var(--text-light);font-weight:600;letter-spacing:.05em;text-transform:uppercase;font-size:.85rem">
+        How Each Bot Works
+    </h4>
+    <div class="row g-3 mb-4">
+        {% set bots = [
+            ('easy',   '#e63946', 'fa-dice',
+             'Plays a uniformly random card on every turn. No strategy. Useful as a statistical baseline.'),
+            ('hard',   '#02c39a', 'fa-chess-knight',
+             'Core optimised heuristic: steals point-rich hands and avoids wasting cut cards on empty hands. Proved strongest among rule-based bots in overall tournament play.'),
+            ('medium', '#f9c74f', 'fa-brain',
+             'Extended heuristic with teammate awareness (never cuts a partner\'s hand) and cut-card economy (prefers cheap same-value cuts over 7s). Slightly less effective overall than Hard despite added complexity.'),
+            ('smart',  '#9065ff', 'fa-microchip',
+             'Perfect-Information Monte Carlo (PIMC). For each legal move, simulates 120 random game completions and picks the action with the highest expected score. Academically sound variant of MCTS for imperfect-information card games (Long et al., AAAI 2010).'),
+        ] %}
+        {% for name, color, icon, desc in bots %}
+        <div class="col-12 col-md-6">
+            <div class="card h-100" style="border-left:4px solid {{ color }}">
+                <div class="card-body">
+                    <h6 class="mb-2" style="color:{{ color }}">
+                        <i class="fas {{ icon }} me-2"></i>{{ name | capitalize }}
+                    </h6>
+                    <p class="mb-0 text-muted" style="font-size:.9rem">{{ desc }}</p>
+                </div>
+            </div>
+        </div>
+        {% endfor %}
+    </div>
+
+
+    {% else %}
+
+    <div class="alert alert-warning text-center">
+        <i class="fas fa-exclamation-triangle me-2"></i>
+        No benchmark data found. Run <code>python run_benchmark.py</code> from the
+        <code>flask_auth_app/</code> directory to generate it.
+    </div>
+
+    {% endif %}
+
+    <div class="text-center mt-4">
+        <a href="{{ url_for('lobbies.index') }}" class="btn btn-primary">
+            <i class="fas fa-arrow-left me-1"></i> Back to Lobbies
+        </a>
+    </div>
+</div>
+{% endblock %}

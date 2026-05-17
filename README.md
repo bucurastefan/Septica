@@ -1,6 +1,5 @@
-Deployment guide: see [DEPLOY_AWS_FREE_TIER.md](DEPLOY_AWS_FREE_TIER.md) for AWS Free Tier EC2 setup.
 
-Current host on aws elasticbeanstalk : http://7even.eu-north-1.elasticbeanstalk.com
+Current host on aws elasticbeanstalk : https://septica7.duckdns.org
 
 Demo Video: https://youtu.be/E09O0_6vQKM
 

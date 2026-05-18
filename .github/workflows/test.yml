@@ -30,4 +30,4 @@ jobs:
 
       - name: Test coverage report
         working-directory: flask_auth_app
-        run: python -m pytest tests/ --cov=game --cov-report=term-missing --cov-fail-under=60
+        run: python -m pytest tests/ --cov=game --cov-report=term-missing

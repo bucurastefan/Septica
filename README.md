@@ -1,5 +1,5 @@
 
-Current host on aws elasticbeanstalk : https://septica7.duckdns.org
+Current host on aws ec2 : https://septica7.duckdns.org
 
 Demo Video: https://youtu.be/E09O0_6vQKM
 

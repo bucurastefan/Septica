@@ -102,6 +102,14 @@ def _run():
 
     n_lobbies = 0
     if stale_ids:
+        # Notify any players still on the game page so they're redirected
+        try:
+            from extensions import socketio as _sio
+            for stale_lobby in Lobby.query.filter(Lobby.id.in_(stale_ids), Lobby.game_started == True):
+                _sio.emit('game_force_end', {}, room=stale_lobby.code)
+        except Exception:
+            pass
+
         LobbyPlayer.query.filter(LobbyPlayer.lobby_id.in_(stale_ids)).delete(synchronize_session=False)
         n_lobbies = Lobby.query.filter(Lobby.id.in_(stale_ids)).delete(synchronize_session=False)
 

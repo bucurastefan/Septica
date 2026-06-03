@@ -275,11 +275,15 @@ def _handle_game_completion(lobby_code, lobby, lobby_players):
     db.session.commit()
     del games[lobby_code]
 
+    # Convert dict keys to strings — JSON/Socket.IO serialises int keys
+    # inconsistently across Python↔JS; string keys are always safe.
+    scores_str = {str(k): v for k, v in scores.items()}
+
     completion_data = {
         'game_finished': True,
         'winner_team': winner,
         'is_tie': is_tie,
-        'scores': scores,
+        'scores': scores_str,
         'num_players': num_players,
         'player_names': player_names,
         'lobby_stats': {

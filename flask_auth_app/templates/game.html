@@ -309,6 +309,12 @@ const lobbyCode = document.getElementById('lobby-code').value;
 let myPosition = null;
 let gameState = null;
 
+// Safety net: if game_completed never arrives (stuck game / disconnect),
+// return to lobby automatically after 20 minutes.
+let _safetyTimer = setTimeout(() => {
+    window.location.href = '/lobby/' + lobbyCode;
+}, 20 * 60 * 1000);
+
 // Join game room and kick off the game
 socket.emit('join_lobby_room', { lobby_code: lobbyCode });
 socket.emit('initialize_game', { lobby_code: lobbyCode });
@@ -326,7 +332,14 @@ socket.on('game_error', function(data) {
     showGameToast(data.message, 'error');
 });
 
+// Server-side cleanup killed the lobby (stuck game > 1 h)
+socket.on('game_force_end', function() {
+    clearTimeout(_safetyTimer);
+    window.location.href = '/lobby/' + lobbyCode;
+});
+
 socket.on('game_completed', function(data) {
+    clearTimeout(_safetyTimer);
     // Wait 3 s so the last card is visible before the overlay appears
     setTimeout(() => showGameResult(data), 3000);
 });
@@ -345,15 +358,15 @@ function showGameResult(data) {
     let scoreLine = '';
     if (NUM_PLAYERS === 3) {
         scoreLine = (data.player_names || [])
-            .map((n, i) => `${n}: ${data.scores[i] ?? 0}`)
+            .map((n, i) => `${n}: ${data.scores[String(i)] ?? 0}`)
             .join(' &nbsp;|&nbsp; ');
     } else {
         const p = data.player_names || [];
         const t0 = [p[0], p[2]].filter(Boolean).join(' & ');
         const t1 = [p[1], p[3]].filter(Boolean).join(' & ');
-        scoreLine = `<span style="color:#a78bfa">${t0}</span> ${data.scores[0] ?? 0}
+        scoreLine = `<span style="color:#a78bfa">${t0}</span> ${data.scores['0'] ?? 0}
                      &nbsp;–&nbsp;
-                     ${data.scores[1] ?? 0} <span style="color:#9ca3af">${t1}</span>`;
+                     ${data.scores['1'] ?? 0} <span style="color:#9ca3af">${t1}</span>`;
     }
 
     const banner = document.createElement('div');

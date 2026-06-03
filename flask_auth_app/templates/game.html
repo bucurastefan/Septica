@@ -315,9 +315,16 @@ let _safetyTimer = setTimeout(() => {
     window.location.href = '/lobby/' + lobbyCode;
 }, 20 * 60 * 1000);
 
+function _initGame() {
+    socket.emit('join_lobby_room', { lobby_code: lobbyCode });
+    socket.emit('initialize_game', { lobby_code: lobbyCode });
+}
+
 // Join game room and kick off the game
-socket.emit('join_lobby_room', { lobby_code: lobbyCode });
-socket.emit('initialize_game', { lobby_code: lobbyCode });
+_initGame();
+
+// Re-sync on reconnect (handles brief network drops)
+socket.on('reconnect', _initGame);
 
 // ---------------------------------------------------------------------------
 // Socket events

@@ -174,7 +174,14 @@ class SepticaGame:
             self.game_phase = "starter_decision"
             self.current_player = self.starter_player
             self.starter_can_take = (self.hand_owner == self.starter_player)
-            self.starter_can_continue = self.has_cut_card(self.starter_player)
+            # Only allow "continue" if other players still have cards to play;
+            # otherwise continuing would leave everyone with empty hands and
+            # the game stuck in 'playing' phase with no moves possible.
+            others_have_cards = any(
+                len(self.players[i]) > 0
+                for i in range(self.num_players) if i != self.starter_player
+            )
+            self.starter_can_continue = self.has_cut_card(self.starter_player) and others_have_cards
         else:
             self.current_player = next_player
 
@@ -197,6 +204,16 @@ class SepticaGame:
         self.hand_owner = self.starter_player
         self.game_phase = "playing"
         self.current_player = (self.current_player + 1) % self.num_players
+
+        # Defensive recovery: if the next player already has no cards
+        # (everyone played their last card before the starter continued),
+        # the round can never complete — fall back to starter_decision.
+        if not self.players.get(self.current_player):
+            self.game_phase = "starter_decision"
+            self.current_player = self.starter_player
+            self.starter_can_take = (self.hand_owner == self.starter_player)
+            self.starter_can_continue = False
+
         return True, None
 
     # ------------------------------------------------------------------ #

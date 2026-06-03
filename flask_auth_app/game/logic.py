@@ -170,13 +170,20 @@ class SepticaGame:
         next_player = (self.current_player + 1) % self.num_players
 
         if next_player == self.starter_player:
+            # If there are no cards left anywhere, skip starter_decision and
+            # resolve the hand immediately — no one can take/continue anyway.
+            no_cards_left = (
+                not self.deck and
+                all(len(self.players[i]) == 0 for i in range(self.num_players))
+            )
+            if no_cards_left:
+                return self.resolve_hand()
+
             # Full rotation done — starter decides what to do with the hand
             self.game_phase = "starter_decision"
             self.current_player = self.starter_player
             self.starter_can_take = (self.hand_owner == self.starter_player)
-            # Only allow "continue" if other players still have cards to play;
-            # otherwise continuing would leave everyone with empty hands and
-            # the game stuck in 'playing' phase with no moves possible.
+            # Only allow "continue" if other players still have cards to play.
             others_have_cards = any(
                 len(self.players[i]) > 0
                 for i in range(self.num_players) if i != self.starter_player

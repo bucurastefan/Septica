@@ -264,6 +264,8 @@ def _rollout_random(game, num_players):
             hand = game.players.get(pos, [])
             if hand:
                 game.play_card(pos, random.randrange(len(hand)))
+            else:
+                break  # no cards left — game should have auto-resolved
 
         elif phase == 'starter_decision':
             options = ['forfeit']

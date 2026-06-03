@@ -435,6 +435,27 @@ function showGameResult(data) {
 // Display update — main entry point
 // ---------------------------------------------------------------------------
 function updateGameDisplay(state) {
+    // Safety net: if the server marks the game as over in a state update
+    // but the game_completed event was missed, redirect to lobby.
+    if (state.game_over) {
+        clearTimeout(_safetyTimer);
+        const scores = state.scores || {};
+        let winner = null, maxScore = -1, isTie = false;
+        for (const k in scores) {
+            if (scores[k] > maxScore) { maxScore = scores[k]; winner = parseInt(k); isTie = false; }
+            else if (scores[k] === maxScore) { isTie = true; winner = null; }
+        }
+        showGameResult({
+            game_finished: true,
+            winner_team: winner,
+            is_tie: isTie,
+            scores: scores,
+            num_players: NUM_PLAYERS,
+            player_names: state.player_names || [],
+            message: ''
+        });
+        return;
+    }
     updateScores(state);
     updateHandTitle(state);
     updatePlayerTeam(state);

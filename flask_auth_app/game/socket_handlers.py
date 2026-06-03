@@ -212,19 +212,12 @@ def _handle_hand_action(data, action):
 
 
 def _handle_game_completion(lobby_code, lobby, lobby_players):
-    game = games[lobby_code]
-    if not game.is_game_finished():
+    game = games.get(lobby_code)
+    if not game or not game.is_game_finished():
         return False
 
-    # Push the final board state FIRST so every client sees the last card before
-    # the game_completed event triggers the result overlay.
+    # Capture everything we need before any cleanup
     player_names = [lp.user.username for lp in lobby_players]
-    for i in range(len(lobby_players)):
-        state = game.get_game_state(i)
-        state['position'] = i
-        state['player_names'] = player_names
-        socketio.emit('game_state_update', state, room=f"{lobby_code}_player_{i}")
-
     result = game.get_game_result()
     winner = result['winner']
     is_tie = result['is_tie']
@@ -232,51 +225,75 @@ def _handle_game_completion(lobby_code, lobby, lobby_players):
     hands_won = result['hands_won']
     num_players = game.num_players
 
+    # Push the final board state so clients see the last cards on the table
+    # before the game_completed event triggers the result overlay.
+    for i in range(len(lobby_players)):
+        state = game.get_game_state(i)
+        state['position'] = i
+        state['player_names'] = player_names
+        socketio.emit('game_state_update', state, room=f"{lobby_code}_player_{i}")
+
+    # Always clean up lobby + in-memory game, even if stat processing fails
+    lobby.game_started = False
     lobby.total_games_played += 1
 
-    if num_players == 3:
-        notification_message, notification_type, is_perfect_game = _resolve_3player_outcome(
-            lobby, player_names, winner, is_tie, scores, hands_won
-        )
-    else:
-        notification_message, notification_type, is_perfect_game = _resolve_4player_outcome(
-            lobby, winner, is_tie, scores, hands_won
-        )
+    notification_message = "Game over."
+    notification_type = "info"
+    is_perfect_game = False
+    completion_message = notification_message
 
-    _update_player_statistics(lobby, lobby_players, winner, is_tie, scores,
-                               hands_won, is_perfect_game, num_players)
-    db.session.commit()
-    socketio.emit('stats_updated', {}, broadcast=True)
+    try:
+        if num_players == 3:
+            notification_message, notification_type, is_perfect_game = _resolve_3player_outcome(
+                lobby, player_names, winner, is_tie, scores, hands_won
+            )
+        else:
+            notification_message, notification_type, is_perfect_game = _resolve_4player_outcome(
+                lobby, winner, is_tie, scores, hands_won
+            )
 
-    # Build the per-player notification stored for the lobbies page
-    if num_players == 3:
-        score_str = ', '.join(f"{player_names[i]}: {scores[i]}" for i in range(3))
-        lobby_stat_str = (
-            f"{player_names[0]}: {lobby.team1_wins} - "
-            f"{player_names[1]}: {lobby.team2_wins} - "
-            f"{player_names[2]}: {lobby.team3_wins} wins"
-        )
-        completion_message = f"{notification_message} Scores: {score_str}. Lobby: {lobby_stat_str}"
-    else:
-        completion_message = (
-            f"{notification_message} Lobby Stats: "
-            f"Team Purple: {lobby.team1_wins} wins - Team Black: {lobby.team2_wins} wins"
-        )
+        _update_player_statistics(lobby, lobby_players, winner, is_tie, scores,
+                                   hands_won, is_perfect_game, num_players)
 
-    for lp in lobby_players:
-        game_completion_messages[lp.user.username] = {
-            'message': completion_message,
-            'type': notification_type,
-            'lobby_code': lobby_code,
-        }
+        if num_players == 3:
+            score_str = ', '.join(f"{player_names[i]}: {scores[i]}" for i in range(3))
+            lobby_stat_str = (
+                f"{player_names[0]}: {lobby.team1_wins} - "
+                f"{player_names[1]}: {lobby.team2_wins} - "
+                f"{player_names[2]}: {lobby.team3_wins} wins"
+            )
+            completion_message = f"{notification_message} Scores: {score_str}. Lobby: {lobby_stat_str}"
+        else:
+            completion_message = (
+                f"{notification_message} Lobby Stats: "
+                f"Team Purple: {lobby.team1_wins} wins - Team Black: {lobby.team2_wins} wins"
+            )
 
-    _save_game_result(lobby_code, lobby_players, winner, is_tie, scores, num_players)
-    lobby.game_started = False
-    db.session.commit()
-    del games[lobby_code]
+        for lp in lobby_players:
+            game_completion_messages[lp.user.username] = {
+                'message': completion_message,
+                'type': notification_type,
+                'lobby_code': lobby_code,
+            }
 
-    # Convert dict keys to strings — JSON/Socket.IO serialises int keys
-    # inconsistently across Python↔JS; string keys are always safe.
+        _save_game_result(lobby_code, lobby_players, winner, is_tie, scores, num_players)
+
+    except Exception as e:
+        logger.error(f"Error processing game completion for {lobby_code}: {e}", exc_info=True)
+        db.session.rollback()
+
+    finally:
+        # Ensure lobby is always marked as not started and game is always removed
+        try:
+            lobby.game_started = False
+            db.session.commit()
+        except Exception as e:
+            logger.error(f"Failed to commit game_started=False for {lobby_code}: {e}")
+            db.session.rollback()
+
+        games.pop(lobby_code, None)
+        socketio.emit('stats_updated', {}, broadcast=True)
+
     scores_str = {str(k): v for k, v in scores.items()}
 
     completion_data = {

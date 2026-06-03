@@ -347,11 +347,15 @@ socket.on('game_force_end', function() {
 
 socket.on('game_completed', function(data) {
     clearTimeout(_safetyTimer);
-    // Wait 3 s so the last card is visible before the overlay appears
-    setTimeout(() => showGameResult(data), 3000);
+    clearTimeout(_gameOverFallbackTimer);
+    // Wait 3 s so the last cards are visible on the table before the overlay
+    setTimeout(() => {
+        if (!_gameResultShown) showGameResult(data);
+    }, 3000);
 });
 
 function showGameResult(data) {
+    _gameResultShown = true;
     const SHOW_DURATION = 5000; // ms overlay stays before redirect
 
     const myTeam  = NUM_PLAYERS === 3 ? myPosition : myPosition % 2;
@@ -431,31 +435,15 @@ function showGameResult(data) {
     setTimeout(() => { window.location.href = '/lobby/' + lobbyCode; }, SHOW_DURATION);
 }
 
+// Prevent the result overlay from being shown more than once
+let _gameResultShown = false;
+let _gameOverFallbackTimer = null;
+
 // ---------------------------------------------------------------------------
 // Display update — main entry point
 // ---------------------------------------------------------------------------
 function updateGameDisplay(state) {
-    // Safety net: if the server marks the game as over in a state update
-    // but the game_completed event was missed, redirect to lobby.
-    if (state.game_over) {
-        clearTimeout(_safetyTimer);
-        const scores = state.scores || {};
-        let winner = null, maxScore = -1, isTie = false;
-        for (const k in scores) {
-            if (scores[k] > maxScore) { maxScore = scores[k]; winner = parseInt(k); isTie = false; }
-            else if (scores[k] === maxScore) { isTie = true; winner = null; }
-        }
-        showGameResult({
-            game_finished: true,
-            winner_team: winner,
-            is_tie: isTie,
-            scores: scores,
-            num_players: NUM_PLAYERS,
-            player_names: state.player_names || [],
-            message: ''
-        });
-        return;
-    }
+    // Always render the board first so the last cards are visible
     updateScores(state);
     updateHandTitle(state);
     updatePlayerTeam(state);
@@ -466,6 +454,33 @@ function updateGameDisplay(state) {
     updatePlayerHand(state);
     updateCenterPile(state);
     updateActionButtons(state);
+
+    // If the server marks the game as over here, the game_completed event
+    // (sent right after by the server) will show the result overlay with a
+    // 3-second delay so the last cards are visible first.
+    // Set a longer fallback in case game_completed never arrives.
+    if (state.game_over && !_gameResultShown) {
+        clearTimeout(_safetyTimer);
+        clearTimeout(_gameOverFallbackTimer);
+        _gameOverFallbackTimer = setTimeout(() => {
+            if (_gameResultShown) return;
+            const sc = state.scores || {};
+            let winner = null, maxScore = -1, isTie = false;
+            for (const k in sc) {
+                if (sc[k] > maxScore) { maxScore = sc[k]; winner = parseInt(k); isTie = false; }
+                else if (sc[k] === maxScore) { isTie = true; winner = null; }
+            }
+            showGameResult({
+                game_finished: true,
+                winner_team: winner,
+                is_tie: isTie,
+                scores: sc,
+                num_players: NUM_PLAYERS,
+                player_names: state.player_names || [],
+                message: ''
+            });
+        }, 8000); // 8 s fallback — game_completed should arrive within 1 s
+    }
 }
 
 // ---------------------------------------------------------------------------
